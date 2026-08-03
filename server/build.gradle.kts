@@ -3,10 +3,10 @@ plugins {
     alias(libs.plugins.ktor)
 }
 
-group = "com.dewildte.dtxt"
+group = "com.dewildte.capture"
 version = "1.0.0"
 application {
-    mainClass = "com.dewildte.dtxt.ApplicationKt"
+    mainClass = "com.dewildte.capture.ApplicationKt"
 }
 
 dependencies {

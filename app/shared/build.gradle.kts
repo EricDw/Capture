@@ -30,8 +30,8 @@ kotlin {
         browser()
     }
 
-    androidLibrary {
-        namespace = "com.dewildte.dtxt.app.shared"
+    android {
+        namespace = "com.dewildte.capture.app.shared"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 

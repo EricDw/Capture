@@ -1,4 +1,4 @@
-rootProject.name = "DTXT"
+rootProject.name = "Capture"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {

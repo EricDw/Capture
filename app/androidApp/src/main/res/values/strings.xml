@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">DTXT</string>
-    <string name="label_plain_text_intent_filter">Send to DTXT File</string>
+    <string name="app_name">Capture</string>
+    <string name="label_plain_text_intent_filter">Send to Capture File</string>
 </resources>

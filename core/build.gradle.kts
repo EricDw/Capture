@@ -22,7 +22,7 @@ kotlin {
     }
 
     androidLibrary {
-        namespace = "com.dewildte.dtxt.core"
+        namespace = "com.dewildte.capture.core"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 

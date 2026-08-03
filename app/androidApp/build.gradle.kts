@@ -20,14 +20,16 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.material3)
     debugImplementation(libs.compose.uiTooling)
+    implementation(libs.litertlm.android)
+
 }
 
 android {
-    namespace = "com.dewildte.dtxt"
+    namespace = "com.dewildte.capture"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.dewildte.dtxt"
+        applicationId = "com.dewildte.capture"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1

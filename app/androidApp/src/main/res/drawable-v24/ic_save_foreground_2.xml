@@ -1,0 +1,11 @@
+<vector xmlns:android="http://android.com"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Centered Google Material Symbols Outlined "Save" Path -->
+    <path
+        android:fillColor="#E8EAED"
+        android:pathData="M38,30 H64 L74,40 V78 H38 Z M42,34 V74 H70 V41.6 L62.4,34 Z M54,40 C55.65,40 57.07,40.58 58.26,41.74 C59.45,42.9 60,44.32 60,46 C60,47.65 59.45,49.07 58.26,50.26 C57.07,51.45 55.65,52 54,52 C52.35,52 50.93,51.45 49.74,50.26 C48.55,49.07 48,47.65 48,46 C48,44.32 48.55,42.9 49.74,41.74 C50.93,40.58 52.35,40 54,40 Z M46,58 H62 V70 H46 Z" />
+</vector>

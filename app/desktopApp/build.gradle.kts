@@ -17,11 +17,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "com.dewildte.dtxt.MainKt"
+        mainClass = "com.dewildte.capture.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.dewildte.dtxt"
+            packageName = "com.dewildte.capture"
             packageVersion = "1.0.0"
         }
     }
