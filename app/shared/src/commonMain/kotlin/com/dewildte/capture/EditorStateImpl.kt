@@ -10,7 +10,6 @@ import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.events.*
 import com.dewildte.capture.queries.GetCurrentDateString
 import com.dewildte.capture.utils.tellErrorLog
-import kotlin.time.Clock
 
 @Stable
 class EditorStateImpl(

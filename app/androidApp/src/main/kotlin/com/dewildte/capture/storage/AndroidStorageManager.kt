@@ -12,7 +12,6 @@ import com.dewildte.capture.utils.Actor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 class AndroidStorageManager(

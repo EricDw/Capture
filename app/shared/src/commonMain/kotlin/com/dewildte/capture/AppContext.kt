@@ -1,6 +1,5 @@
 package com.dewildte.capture
 
-import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.utils.Actor
 
 interface AppContext : Actor {

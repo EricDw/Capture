@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.dewildte.capture.data.ModelInfo
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class AndroidSettingsManager(context: Context) : SettingsManager {
