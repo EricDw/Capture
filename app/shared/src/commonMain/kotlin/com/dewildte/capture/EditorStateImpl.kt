@@ -113,7 +113,7 @@ class EditorStateImpl(
     private fun handleNavigationEvent(event: NavigationEvent) {
         when (event) {
             is AiTabClicked -> {
-                context.tell(TransitionToState(AiStateImpl()))
+                context.tell(TransitionToState(context.aiState!!))
             }
 
             is MenuTabClicked -> {

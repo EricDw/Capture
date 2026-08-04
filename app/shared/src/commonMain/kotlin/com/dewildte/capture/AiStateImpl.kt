@@ -98,12 +98,7 @@ class AiStateImpl(
         context.controller.tellDebugLog(TAG, "Navigation event: $event")
         when (event) {
             is EditorTabClicked -> {
-                val stateToTransitionTo = if (previousState is EditorState) {
-                    previousState!!
-                } else {
-                    EditorStateImpl()
-                }
-                context.tell(TransitionToState(stateToTransitionTo))
+                context.tell(TransitionToState(context.editorState!!))
             }
 
             is MenuTabClicked -> {

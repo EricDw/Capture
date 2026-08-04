@@ -30,13 +30,9 @@ class EmptyStateImpl : EmptyState {
             }
 
             is FileSelected -> {
-                appContext.tell(
-                    TransitionToState(
-                        EditorStateImpl(
-                            textFile = message.textFile
-                        )
-                    )
-                )
+                val editorState = appContext.editorState!!
+                editorState.tell(message)
+                appContext.tell(TransitionToState(editorState))
             }
 
             is NavigationEvent -> {
@@ -48,7 +44,7 @@ class EmptyStateImpl : EmptyState {
     private fun handleNavigationEvent(event: NavigationEvent) {
         when (event) {
             is AiTabClicked -> {
-                appContext.tell(TransitionToState(AiStateImpl()))
+                appContext.tell(TransitionToState(appContext.aiState!!))
             }
 
             is EditorTabClicked -> {

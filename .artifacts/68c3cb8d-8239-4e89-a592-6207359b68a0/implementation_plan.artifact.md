@@ -1,66 +1,50 @@
-# Refactoring MainActivity for Better Separation of Concerns
+# Refactoring AppContext to Support Sibling State Trees
 
-This plan outlines the extraction of AI logic, storage management, and preference handling from `MainActivity` into a `ViewModel` and specialized manager classes.
+This plan refactors `AppContext` to explicitly manage `EditorState` and `AiState` as persistent sibling state trees, allowing for state preservation when switching between tabs.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> This refactor moves almost all logic out of `MainActivity`. While functionality should remain identical, the internal wiring changes significantly.
-> `ActivityResultLauncher`s must remain in the `Activity`, but their results will be passed to the `MainViewModel`.
+> - `EditorState` and `AiState` will be initialized lazily.
+> - Switching tabs will no longer use the `stateStack` for navigation between roots; instead, it will swap the active `state` pointer between the pre-existing sibling trees.
+> - A new architecture document will be created to record the "Tree of States" design.
 
 ## Proposed Changes
 
-### [NEW] Step 0: Version Control
-- Commit all current changes related to "Multiple AI Model Support".
-- Push to the remote repository.
+### Core Architecture (commonMain)
 
-### Core Infrastructure (Android-only)
+#### [MODIFY] [AppContext.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/shared/src/commonMain/kotlin/com/dewildte/capture/AppContext.kt)
+- Add `editorState: EditorState?` and `aiState: AiState?` to `AppContext`.
+- Add mutable overrides to `MutableAppContext`.
 
-#### [NEW] [SettingsManager.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/androidApp/src/main/kotlin/com/dewildte/capture/SettingsManager.kt)
-Extract `SharedPreferences` logic.
-- Methods for getting/setting URIs (Selected File, Snippets, AI Storage, Model).
-- Methods for getting/setting the list of `ModelInfo`.
+#### [MODIFY] [AppContextImpl.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/shared/src/commonMain/kotlin/com/dewildte/capture/AppContextImpl.kt)
+- Implement `editorState` and `aiState` as lazy-initialized properties (using `mutableStateOf`).
+- Ensure they are instantiated only when first requested.
 
-#### [NEW] [AndroidStorageManager.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/androidApp/src/main/kotlin/com/dewildte/capture/storage/AndroidStorageManager.kt)
-Extract file I/O logic.
-- Handle `ContentResolver` operations for reading/writing text files.
-- Handle `DocumentFile` operations for conversation persistence.
-- Parsing and serialization of conversation files.
+#### [MODIFY] [EditorStateImpl.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/shared/src/commonMain/kotlin/com/dewildte/capture/EditorStateImpl.kt)
+- Update navigation logic for `AiTabClicked`:
+    - Tell the context to transition to its `aiState`.
 
-#### [NEW] [AndroidAiManager.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/androidApp/src/main/kotlin/com/dewildte/capture/ai/AndroidAiManager.kt)
-Extract LiteRT logic.
-- Manage `Engine` lifecycle.
-- Handle model initialization and copying files to `cacheDir`.
-- Handle `SendAiMessage` and generation streaming.
-- Handle `StopAiGeneration`.
+#### [MODIFY] [AiStateImpl.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/shared/src/commonMain/kotlin/com/dewildte/capture/AiStateImpl.kt)
+- Update navigation logic for `EditorTabClicked`:
+    - Tell the context to transition to its `editorState`.
 
-### Coordination Layer
+### Documentation
 
-#### [NEW] [MainViewModel.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/androidApp/src/main/kotlin/com/dewildte/capture/MainViewModel.kt)
-The primary `Actor` for the application.
-- Owns `AppContextImpl`.
-- Injects `SettingsManager`, `AndroidAiManager`, and `AndroidStorageManager`.
-- Implements `tell` by delegating to managers or handling app-level state transitions.
-- Provides callbacks for the Activity to report picker results.
-
----
-
-### Cleaned Up Activity
-
-#### [MODIFY] [MainActivity.kt](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/app/androidApp/src/main/kotlin/com/dewildte/capture/MainActivity.kt)
-- Remove `Engine`, `Job`, and all AI/Storage private methods.
-- Remove the large `tell` implementation.
-- Use `viewModels<MainViewModel>()` to obtain the controller.
-- Delegate `ActivityResultLauncher` results to the ViewModel.
-- Keep only Compose setup and system back handling.
+#### [NEW] [state_tree_architecture.artifact.md](file:///Users/ericdewildt/Source/KotlinMultiPlatform/Capture/.artifacts/68c3cb8d-8239-4e89-a592-6207359b68a0/state_tree_architecture.artifact.md)
+Create a document describing the "Tree of States" architecture, detailing how sibling trees (Editor/AI) maintain their internal state and how the app transitions between them.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `:app:androidApp:assembleDebug` to ensure no regression in compilation or dependency wiring.
+- Run `:app:androidApp:assembleDebug`.
 
 ### Manual Verification
-1. **AI Flow**: Verify model loading, message sending, and switching still works.
-2. **File Flow**: Verify selecting text files and snippets still loads content into the editor.
-3. **Storage Flow**: Verify conversations are still loaded from and saved to the selected storage folder.
-4. **Persistence**: Verify all settings (URIs, selected model) survive app restart.
+1. **State Preservation**:
+    - Navigate to the AI tab, start a message but don't send it.
+    - Switch to the Editor tab.
+    - Switch back to the AI tab and verify the unsent message is still there.
+2. **Lazy Initialization**:
+    - Verify (via logs) that `AiState` is not created until the AI tab is clicked for the first time.
+3. **Initialization Flow**:
+    - Ensure the app still starts in `InitialState` and transitions correctly after initialization.

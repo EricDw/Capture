@@ -31,6 +31,32 @@ class AppContextImpl(
     override var stateStack: MutableList<AppState> = mutableStateListOf(state)
     override var controller: Actor by mutableStateOf(controller)
 
+    private var _editorState: EditorState? by mutableStateOf(null)
+    override var editorState: EditorState?
+        get() {
+            val current = _editorState
+            if (current != null) return current
+            val new = EditorStateImpl()
+            _editorState = new
+            return new
+        }
+        set(value) {
+            _editorState = value
+        }
+
+    private var _aiState: AiState? by mutableStateOf(null)
+    override var aiState: AiState?
+        get() {
+            val current = _aiState
+            if (current != null) return current
+            val new = AiStateImpl()
+            _aiState = new
+            return new
+        }
+        set(value) {
+            _aiState = value
+        }
+
     override var isAiModelLoading: Boolean by mutableStateOf(false)
     override var isAiModelReady: Boolean by mutableStateOf(false)
     override var selectedAiModelName: String? by mutableStateOf(null)

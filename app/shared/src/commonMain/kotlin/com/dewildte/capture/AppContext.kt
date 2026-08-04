@@ -10,6 +10,9 @@ interface AppContext : Actor {
     val state: AppState
     val stateStack: List<AppState>
 
+    val editorState: EditorState?
+    val aiState: AiState?
+
     val isAiModelLoading: Boolean
     val isAiModelReady: Boolean
     val selectedAiModelName: String?
@@ -30,6 +33,9 @@ interface MutableAppContext: AppContext {
     override var state: AppState
     override var controller: Actor
     override val stateStack: MutableList<AppState>
+
+    override var editorState: EditorState?
+    override var aiState: AiState?
 
     override var isAiModelLoading: Boolean
     override var isAiModelReady: Boolean

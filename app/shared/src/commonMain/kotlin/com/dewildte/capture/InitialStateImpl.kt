@@ -26,13 +26,9 @@ class InitialStateImpl : InitialState {
             }
 
             is FileSelected -> {
-                context.tell(
-                    TransitionToState(
-                        EditorStateImpl(
-                            textFile = message.textFile
-                        )
-                    )
-                )
+                val editorState = context.editorState!!
+                editorState.tell(message)
+                context.tell(TransitionToState(editorState))
             }
 
             is FailedToLoadSelectedFile -> {
