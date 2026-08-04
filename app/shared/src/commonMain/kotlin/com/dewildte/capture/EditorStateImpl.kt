@@ -7,26 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dewildte.capture.commands.*
 import com.dewildte.capture.data.TextFile
-import com.dewildte.capture.events.EditorContentEvent
-import com.dewildte.capture.events.FailedToLoadSelectedFile
-import com.dewildte.capture.events.FailedToLoadSelectedSnippetsFile
-import com.dewildte.capture.events.FailedToSelectSnippetsFile
-import com.dewildte.capture.events.FailedToUpdateFileContent
-import com.dewildte.capture.events.FileSelected
-import com.dewildte.capture.events.FileTextChanged
-import com.dewildte.capture.events.FindInPageClicked
-import com.dewildte.capture.events.InsertSnippetClicked
-import com.dewildte.capture.events.MoreMenuClicked
-import com.dewildte.capture.events.MoreMenuDismissRequested
-import com.dewildte.capture.events.SearchTermChanged
-import com.dewildte.capture.events.SelectFileClicked
-import com.dewildte.capture.events.SelectSnippetsFileClicked
-import com.dewildte.capture.events.SettingsClicked
-import com.dewildte.capture.events.SnippetClicked
-import com.dewildte.capture.events.SnippetInserted
-import com.dewildte.capture.events.SnippetSelectorDismissRequested
-import com.dewildte.capture.events.SnippetsFileLoaded
-import com.dewildte.capture.events.SnippetsFileSelected
+import com.dewildte.capture.events.*
 import com.dewildte.capture.queries.GetCurrentDateString
 import com.dewildte.capture.utils.tellErrorLog
 import kotlin.time.Clock
@@ -99,6 +80,10 @@ class EditorStateImpl(
                 snippetSelectorIsEmpty = false
             }
 
+            is NavigationEvent -> {
+                handleNavigationEvent(message)
+            }
+
             is FailedToUpdateFileContent -> {
                 context.controller.tellErrorLog(
                     tag = TAG,
@@ -121,6 +106,22 @@ class EditorStateImpl(
 
             is FailedToSelectSnippetsFile -> {
                 snippetSelectorIsEmpty = true
+            }
+        }
+    }
+
+    private fun handleNavigationEvent(event: NavigationEvent) {
+        when (event) {
+            is AiTabClicked -> {
+                context.tell(TransitionToState(AiStateImpl()))
+            }
+
+            is MenuTabClicked -> {
+                context.controller.tell(SelectTextFile)
+            }
+
+            is EditorTabClicked -> {
+                // Already here
             }
         }
     }

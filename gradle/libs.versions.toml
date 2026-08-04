@@ -21,6 +21,7 @@ materialIconsExtended = "1.7.3"
 foundation = "1.11.4"
 material3Version = "1.4.0"
 litertlmAndroid = "0.15.0"
+documentfile = "1.1.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -40,7 +41,10 @@ compose-material3 = { module = "org.jetbrains.compose.material3:material3", vers
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
-kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-bom = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-bom", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android" }
+kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing" }
 litertlm-android = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litertlmAndroid" }
 logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 ktor-serverCore = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
@@ -50,6 +54,7 @@ material-icons-extended = { module = "org.jetbrains.compose.material:material-ic
 wrappers-browser = { module = "org.jetbrains.kotlin-wrappers:kotlin-browser", version.ref = "kotlin-wrappers" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3Version" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

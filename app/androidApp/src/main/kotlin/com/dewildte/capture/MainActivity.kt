@@ -20,29 +20,30 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.edit
 import androidx.core.net.toFile
 import androidx.core.net.toUri
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
 import com.dewildte.capture.commands.*
+import com.dewildte.capture.data.Conversation
 import com.dewildte.capture.data.LogData
 import com.dewildte.capture.data.LogLevel
+import com.dewildte.capture.data.Message
+import com.dewildte.capture.data.MessageRole
 import com.dewildte.capture.data.TextFile
-import com.dewildte.capture.events.FailedToLoadSelectedFile
-import com.dewildte.capture.events.FailedToLoadSelectedSnippetsFile
-import com.dewildte.capture.events.FailedToSelectFile
-import com.dewildte.capture.events.FailedToSelectModelFile
-import com.dewildte.capture.events.FailedToSelectSnippetsFile
-import com.dewildte.capture.events.FailedToUpdateFileContent
-import com.dewildte.capture.events.FileSelected
-import com.dewildte.capture.events.SnippetsFileSelected
-import com.dewildte.capture.events.SystemBackButtonClicked
+import com.dewildte.capture.events.*
 import com.dewildte.capture.queries.GetCurrentDateString
 import com.dewildte.capture.utils.Actor
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.time.LocalDateTime
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 class MainActivity : ComponentActivity(), Actor {
 
@@ -111,7 +112,7 @@ class MainActivity : ComponentActivity(), Actor {
                 )
 
                 getPreferences(MODE_PRIVATE).edit {
-                    putString(KEY_SELECTED_SNIPPETS_FILE_URI, uri.toString())
+                    putString(KEY_SELECTED_MODEL_FILE_URI, uri.toString())
                 }
 
                 onSelectedModelFileUriFound(uri)
@@ -124,7 +125,34 @@ class MainActivity : ComponentActivity(), Actor {
         }
     }
 
+    private val aiStorageFolderSelector = registerForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        try {
+            if (uri != null) {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+
+                getPreferences(MODE_PRIVATE).edit {
+                    putString(KEY_AI_STORAGE_FOLDER_URI, uri.toString())
+                }
+
+                appContext.tell(AiStorageFolderSelected(uri.toString()))
+                loadConversations()
+            } else {
+                appContext.tell(FailedToSelectStorageFolder)
+            }
+        } catch (cause: Throwable) {
+            appContext.tell(FailedToSelectStorageFolder)
+        }
+    }
+
     private lateinit var engine: Engine
+    private val engineMutex = Mutex()
+    private var aiJob: Job? = null
+    private var aiConversation: com.google.ai.edge.litertlm.Conversation? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -145,6 +173,20 @@ class MainActivity : ComponentActivity(), Actor {
 
             BackHandler(enabled = appContext.backNavigationEnabled) {
                 appContext.tell(SystemBackButtonClicked)
+            }
+        }
+
+        loadPersistedModel()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::engine.isInitialized) {
+            try {
+                engine.close()
+                logMessage(LogData(LogLevel.INFO, TAG, "AI Engine closed on destruction"))
+            } catch (e: Exception) {
+                Log.e(TAG, "Error closing engine on destroy", e)
             }
         }
     }
@@ -193,8 +235,10 @@ class MainActivity : ComponentActivity(), Actor {
 
             is SelectModelFile -> {
                 try {
-                    modelFileSelector.launch(arrayOf("application/octet-stream"))
+                    logMessage(LogData(LogLevel.INFO, TAG, "Launching model selector"))
+                    modelFileSelector.launch(arrayOf("application/octet-stream", "*/*"))
                 } catch (cause: Throwable) {
+                    logMessage(LogData(LogLevel.ERROR, TAG, "Failed to launch model selector", cause))
                     appContext.tell(FailedToSelectModelFile(cause))
                 }
             }
@@ -268,6 +312,37 @@ class MainActivity : ComponentActivity(), Actor {
                 message.onResult(date)
             }
 
+            is SendAiMessage -> {
+                sendAiMessage(message.message)
+            }
+
+            is StopAiGeneration -> {
+                logMessage(LogData(LogLevel.INFO, TAG, "Stopping AI generation"))
+                aiJob?.cancel()
+                aiJob = null
+                appContext.tell(AiResponseComplete)
+            }
+
+            is SelectAiStorageFolder -> {
+                try {
+                    aiStorageFolderSelector.launch(null)
+                } catch (cause: Throwable) {
+                    appContext.tell(FailedToSelectStorageFolder)
+                }
+            }
+
+            is LoadConversationsFromStorage -> {
+                loadConversations()
+            }
+
+            is SaveConversationToStorage -> {
+                saveConversation(message.conversation)
+            }
+
+            is DeleteConversationFromStorage -> {
+                deleteConversation(message.conversationId)
+            }
+
             else -> {
                 logMessage(
                     LogData(
@@ -279,6 +354,158 @@ class MainActivity : ComponentActivity(), Actor {
             }
         }
 
+    }
+
+    private fun sendAiMessage(message: String) {
+        logMessage(LogData(LogLevel.INFO, TAG, "Sending AI message: ${message.take(50)}..."))
+        if (!::engine.isInitialized) {
+            logMessage(LogData(LogLevel.ERROR, TAG, "AI Engine not initialized"))
+            appContext.tell(AiResponseError(IllegalStateException("AI Engine not initialized. Please select a model file.")))
+            return
+        }
+
+        aiJob?.cancel()
+        aiJob = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                if (aiConversation == null) {
+                    aiConversation = engine.createConversation()
+                }
+
+                aiConversation?.let { convo ->
+                    convo.sendMessageAsync(message).collect { chunk ->
+                        val textChunk = (chunk.contents.contents.firstOrNull() as? com.google.ai.edge.litertlm.Content.Text)?.text ?: ""
+                        appContext.tell(AiResponseChunk(textChunk))
+                    }
+                    appContext.tell(AiResponseComplete)
+                }
+            } catch (cause: Throwable) {
+                appContext.tell(AiResponseError(cause))
+            } finally {
+                aiJob = null
+            }
+        }
+    }
+
+    private fun loadConversations() {
+        val uriString = getPreferences(MODE_PRIVATE).getString(KEY_AI_STORAGE_FOLDER_URI, null) ?: return
+        val rootUri = Uri.parse(uriString)
+        val root = DocumentFile.fromTreeUri(this, rootUri) ?: return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val conversations = mutableListOf<Conversation>()
+            root.listFiles().forEach { file ->
+                if (file.isFile && file.name?.endsWith(".txt") == true) {
+                    try {
+                        contentResolver.openInputStream(file.uri)?.use { inputStream ->
+                            val content = inputStream.reader().readText()
+                            parseConversation(file.name!!, content)?.let {
+                                conversations.add(it)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to parse conversation file: ${file.name}", e)
+                    }
+                }
+            }
+            appContext.tell(ConversationsLoaded(conversations.sortedByDescending { it.updatedAt }))
+        }
+    }
+
+    private fun parseConversation(fileName: String, content: String): Conversation? {
+        try {
+            val id = fileName.removeSuffix(".txt")
+            val lines = content.lines()
+            if (lines.isEmpty()) return null
+
+            var title = "Untitled"
+            var updatedAt = 0L
+            var messageStartLine = 0
+
+            for (i in lines.indices) {
+                val line = lines[i]
+                if (line.startsWith("Title: ")) title = line.removePrefix("Title: ")
+                if (line.startsWith("UpdatedAt: ")) updatedAt = line.removePrefix("UpdatedAt: ").toLongOrNull() ?: 0L
+                if (line == "---") {
+                    messageStartLine = i + 1
+                    break
+                }
+            }
+
+            val messages = mutableListOf<Message>()
+            var currentRole: MessageRole? = null
+            var currentContent = StringBuilder()
+
+            for (i in messageStartLine until lines.size) {
+                val line = lines[i]
+                if (line.startsWith("[USER]: ")) {
+                    if (currentRole != null) {
+                        messages.add(Message(Uuid.random().toString(), currentRole, currentContent.toString().trim(), 0))
+                    }
+                    currentRole = MessageRole.USER
+                    currentContent = StringBuilder(line.removePrefix("[USER]: "))
+                } else if (line.startsWith("[AI]: ")) {
+                    if (currentRole != null) {
+                        messages.add(Message(Uuid.random().toString(), currentRole, currentContent.toString().trim(), 0))
+                    }
+                    currentRole = MessageRole.AI
+                    currentContent = StringBuilder(line.removePrefix("[AI]: "))
+                } else {
+                    currentContent.append("\n").append(line)
+                }
+            }
+            if (currentRole != null) {
+                messages.add(Message(Uuid.random().toString(), currentRole, currentContent.toString().trim(), 0))
+            }
+
+            return Conversation(id, title, messages, updatedAt, updatedAt)
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    private fun parseMessage(role: MessageRole, content: String): Message {
+        return Message(Uuid.random().toString(), role, content, 0)
+    }
+
+    private fun saveConversation(conversation: Conversation) {
+        val uriString = getPreferences(MODE_PRIVATE).getString(KEY_AI_STORAGE_FOLDER_URI, null) ?: return
+        val rootUri = Uri.parse(uriString)
+        val root = DocumentFile.fromTreeUri(this, rootUri) ?: return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val fileName = "${conversation.id}.txt"
+            var file = root.findFile(fileName)
+            if (file == null) {
+                file = root.createFile("text/plain", fileName)
+            }
+
+            file?.let {
+                contentResolver.openOutputStream(it.uri, "wt")?.use { outputStream ->
+                    val content = StringBuilder()
+                    content.append("Title: ").append(conversation.title).append("\n")
+                    content.append("UpdatedAt: ").append(conversation.updatedAt).append("\n")
+                    content.append("---\n")
+                    conversation.messages.forEach { msg ->
+                        val roleTag = if (msg.role == MessageRole.USER) "[USER]" else "[AI]"
+                        content.append(roleTag).append(": ").append(msg.content).append("\n\n")
+                    }
+                    outputStream.write(content.toString().toByteArray())
+                    outputStream.flush()
+                }
+            }
+        }
+    }
+
+    private fun deleteConversation(conversationId: String) {
+        val uriString = getPreferences(MODE_PRIVATE).getString(KEY_AI_STORAGE_FOLDER_URI, null) ?: return
+        val rootUri = Uri.parse(uriString)
+        val root = DocumentFile.fromTreeUri(this, rootUri) ?: return
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val fileName = "$conversationId.txt"
+            root.findFile(fileName)?.delete()
+        }
     }
 
     private fun logMessage(message: LogData) {
@@ -336,10 +563,7 @@ class MainActivity : ComponentActivity(), Actor {
     }
 
     private fun Uri.queryFileName(): String {
-        // Return a fallback name if the provider query fails
         var result = "unknown_model.litertlm"
-
-        // Content URIs require a database query to resolve the actual file name
         if (this.scheme == "content") {
             this@MainActivity.contentResolver.query(this, null, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
@@ -350,44 +574,69 @@ class MainActivity : ComponentActivity(), Actor {
                 }
             }
         } else if (this.scheme == "file") {
-            // Fallback for raw file URIs
             result = this.lastPathSegment ?: result
         }
-
         return result
     }
 
     private fun onSelectedModelFileUriFound(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
-            val name = uri.queryFileName()
-
-            val destination = File(cacheDir, name)
-
-            contentResolver.openInputStream(uri)?.use { inputStream ->
-
-                destination.outputStream().use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-
-                val engineConfig = EngineConfig(
-                    modelPath = destination.absolutePath,
-                    backend = Backend.CPU(), // Or Backend.NPU(nativeLibraryDir = "...")
-                    // Optional: Pick a writable dir. This can improve 2nd load time.
-                    cacheDir = cacheDir.path,
-                )
-
-                Engine(engineConfig).use { eng ->
-                    eng.initialize()
-
-                    eng.createConversation().use { convo ->
-                        convo.sendMessageAsync("Hello!").collect { response ->
-                            Log.d(TAG, "onSelectedModelFileUriFound: $response")
+            engineMutex.withLock {
+                val name = uri.queryFileName()
+                val destination = File(cacheDir, name)
+                try {
+                    appContext.tell(ModelInitializationStarted)
+                    contentResolver.openInputStream(uri)?.use { inputStream ->
+                        destination.outputStream().use { outputStream ->
+                            inputStream.copyTo(outputStream)
                         }
+                    }
+
+                    logMessage(LogData(LogLevel.INFO, TAG, "Model file copied: ${destination.absolutePath} (${destination.length()} bytes)"))
+
+                    if (::engine.isInitialized) {
+                        logMessage(LogData(LogLevel.DEBUG, TAG, "Closing existing AI Engine"))
+                        engine.close()
+                    }
+
+                    val modelCacheDir = File(cacheDir, "model_cache")
+                    if (!modelCacheDir.exists()) {
+                        modelCacheDir.mkdirs()
+                    }
+
+                    val engineConfig = EngineConfig(
+                        modelPath = destination.absolutePath,
+                        backend = Backend.CPU(),
+                        cacheDir = modelCacheDir.path,
+                        maxNumTokens = 2048
+                    )
+
+                    engine = Engine(engineConfig)
+                    engine.initialize()
+                    aiConversation = engine.createConversation()
+
+                    logMessage(LogData(LogLevel.INFO, TAG, "AI Engine initialized successfully with model: $name"))
+                    appContext.tell(ModelInitializationSuccess(name))
+
+                } catch (cause: Throwable) {
+                    logMessage(LogData(LogLevel.ERROR, TAG, "Failed to initialize AI Engine: ${cause.message}"))
+                    appContext.tell(ModelInitializationFailed(cause.message ?: "Unknown initialization error"))
+                    // Clean up destination if initialization failed to avoid corrupted state
+                    if (destination.exists()) {
+                        destination.delete()
                     }
                 }
             }
+        }
+    }
 
-//            appContext.state.tell(SnippetsFileSelected(textFile))
+    private fun loadPersistedModel() {
+        val uriString = getPreferences(MODE_PRIVATE).getString(KEY_SELECTED_MODEL_FILE_URI, null) ?: return
+        try {
+            val uri = Uri.parse(uriString)
+            onSelectedModelFileUriFound(uri)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse persisted model URI", e)
         }
     }
 
@@ -395,6 +644,8 @@ class MainActivity : ComponentActivity(), Actor {
         private const val TAG = "MainActivity"
         private const val KEY_SELECTED_FILE_URI = "key_selected_file_uri"
         private const val KEY_SELECTED_SNIPPETS_FILE_URI = "key_selected_snippets_file_uri"
+        private const val KEY_SELECTED_MODEL_FILE_URI = "key_selected_model_file_uri"
+        private const val KEY_AI_STORAGE_FOLDER_URI = "key_ai_storage_folder_uri"
     }
 }
 

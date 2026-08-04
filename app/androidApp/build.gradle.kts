@@ -19,9 +19,21 @@ dependencies {
     implementation(libs.compose.uiToolingPreview)
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.documentfile)
     debugImplementation(libs.compose.uiTooling)
     implementation(libs.litertlm.android)
+    implementation(platform(libs.kotlinx.coroutines.bom))
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
 
+    constraints {
+        implementation(libs.kotlinx.coroutines.core) {
+            because("Fixes binary compatibility issues with litertlm-android and SendChannel.close\$default")
+        }
+        implementation(libs.kotlinx.coroutines.android) {
+            because("Fixes binary compatibility issues with litertlm-android and SendChannel.close\$default")
+        }
+    }
 }
 
 android {

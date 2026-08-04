@@ -1,13 +1,9 @@
 package com.dewildte.capture
 
 import androidx.compose.runtime.Stable
-import com.dewildte.capture.commands.SelectModelFile
-import com.dewildte.capture.commands.SelectTextFile
-import com.dewildte.capture.commands.SetContext
-import com.dewildte.capture.commands.Start
-import com.dewildte.capture.commands.TransitionToState
+import com.dewildte.capture.commands.*
 import com.dewildte.capture.content.empty.SelectTextFileClicked
-import com.dewildte.capture.events.FileSelected
+import com.dewildte.capture.events.*
 
 @Stable
 class EmptyStateImpl : EmptyState {
@@ -41,6 +37,27 @@ class EmptyStateImpl : EmptyState {
                         )
                     )
                 )
+            }
+
+            is NavigationEvent -> {
+                handleNavigationEvent(message)
+            }
+        }
+    }
+
+    private fun handleNavigationEvent(event: NavigationEvent) {
+        when (event) {
+            is AiTabClicked -> {
+                appContext.tell(TransitionToState(AiStateImpl()))
+            }
+
+            is EditorTabClicked -> {
+                // Stay here or maybe transition to EditorState with default if possible? 
+                // Currently EditorState requires a file.
+            }
+
+            is MenuTabClicked -> {
+                appContext.controller.tell(SelectTextFile)
             }
         }
     }

@@ -2,14 +2,9 @@ package com.dewildte.capture
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateListOf
-import com.dewildte.capture.commands.LoadSnippetsFile
-import com.dewildte.capture.commands.SetContext
-import com.dewildte.capture.commands.Start
-import com.dewildte.capture.commands.TransitionToState
+import com.dewildte.capture.commands.*
 import com.dewildte.capture.data.TextFile
-import com.dewildte.capture.events.BackClicked
-import com.dewildte.capture.events.SnippetsFileLoaded
-import com.dewildte.capture.events.SystemBackButtonClicked
+import com.dewildte.capture.events.*
 
 @Stable
 class SettingsStateImpl(
@@ -44,6 +39,26 @@ class SettingsStateImpl(
                 context.tell(TransitionToState(previousState))
             }
 
+            is NavigationEvent -> {
+                handleNavigationEvent(message)
+            }
+
+        }
+    }
+
+    private fun handleNavigationEvent(event: NavigationEvent) {
+        when (event) {
+            is EditorTabClicked -> {
+                context.tell(TransitionToState(EditorStateImpl()))
+            }
+
+            is AiTabClicked -> {
+                context.tell(TransitionToState(AiStateImpl()))
+            }
+
+            is MenuTabClicked -> {
+                context.controller.tell(SelectTextFile)
+            }
         }
     }
 

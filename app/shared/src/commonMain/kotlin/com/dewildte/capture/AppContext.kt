@@ -10,6 +10,11 @@ interface AppContext : Actor {
     val state: AppState
     val stateStack: List<AppState>
 
+    val isAiModelLoading: Boolean
+    val isAiModelReady: Boolean
+    val selectedAiModelName: String?
+    val aiModelError: String?
+
     val controller: Actor
 
     override fun tell(message: Any) {
@@ -24,4 +29,9 @@ interface MutableAppContext: AppContext {
     override var state: AppState
     override var controller: Actor
     override val stateStack: MutableList<AppState>
+
+    override var isAiModelLoading: Boolean
+    override var isAiModelReady: Boolean
+    override var selectedAiModelName: String?
+    override var aiModelError: String?
 }

@@ -11,7 +11,7 @@ import com.dewildte.capture.commands.Command
 import com.dewildte.capture.commands.SetContext
 import com.dewildte.capture.commands.Start
 import com.dewildte.capture.commands.TransitionToState
-import com.dewildte.capture.events.Event
+import com.dewildte.capture.events.*
 import com.dewildte.capture.queries.Query
 import com.dewildte.capture.utils.Actor
 import com.dewildte.capture.utils.tellDebugLog
@@ -31,6 +31,11 @@ class AppContextImpl(
     override var stateStack: MutableList<AppState> = mutableStateListOf(state)
     override var controller: Actor by mutableStateOf(controller)
 
+    override var isAiModelLoading: Boolean by mutableStateOf(false)
+    override var isAiModelReady: Boolean by mutableStateOf(false)
+    override var selectedAiModelName: String? by mutableStateOf(null)
+    override var aiModelError: String? by mutableStateOf(null)
+
     override fun tell(message: Any) {
         when (message) {
             is Event -> {
@@ -46,6 +51,27 @@ class AppContextImpl(
     }
 
     private fun handleEvent(event: Event) {
+        when (event) {
+            is ModelInitializationStarted -> {
+                isAiModelLoading = true
+                isAiModelReady = false
+                aiModelError = null
+            }
+            is ModelInitializationSuccess -> {
+                isAiModelLoading = false
+                isAiModelReady = true
+                selectedAiModelName = event.name
+                aiModelError = null
+            }
+            is ModelInitializationFailed -> {
+                isAiModelLoading = false
+                isAiModelReady = false
+                aiModelError = event.error
+            }
+            else -> {
+                /* no-op */
+            }
+        }
         state.tell(event)
     }
 

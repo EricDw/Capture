@@ -16,14 +16,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import com.dewildte.capture.commands.Start
+import com.dewildte.capture.commands.TransitionToState
+import com.dewildte.capture.components.AiTopBar
 import com.dewildte.capture.components.EditorBottomSheet
 import com.dewildte.capture.components.EditorTopBar
 import com.dewildte.capture.components.SettingsTopBar
+import com.dewildte.capture.content.ai.AiContent
 import com.dewildte.capture.content.editor.EditorContent
 import com.dewildte.capture.content.empty.EmptyContentController
 import com.dewildte.capture.content.loading.LoadingContent
 import com.dewildte.capture.content.settings.SettingsContent
 import com.dewildte.capture.data.TextFile
+import com.dewildte.capture.events.AiTabClicked
+import com.dewildte.capture.events.EditorTabClicked
+import com.dewildte.capture.events.MenuTabClicked
 import com.dewildte.capture.utils.MapParameterProvider
 import com.dewildte.capture.utils.samples.SampleSnippets
 import com.dewildte.capture.utils.samples.SampleText
@@ -44,15 +50,19 @@ fun App(
           }
 
           is EmptyState -> {
-            // TODO: Implement
+              /* no-op */
           }
 
           is InitialState -> {
-            // TODO: Implement
+              /* no-op */
           }
 
           is SettingsState -> {
             SettingsTopBar(state = state)
+          }
+
+          is AiState -> {
+            AiTopBar(state = state)
           }
         }
       },
@@ -61,7 +71,7 @@ fun App(
           NavigationBarItem(
               selected = false,
               onClick = {
-                // TODO: Open a file picker
+                appContext.tell(MenuTabClicked)
               },
               icon = {
                 Icon(Icons.Default.Menu, null)
@@ -69,9 +79,9 @@ fun App(
           )
 
           NavigationBarItem(
-              selected = false,
+              selected = state is EditorState,
               onClick = {
-                // TODO: Open the Editor
+                appContext.tell(EditorTabClicked)
               },
               icon = {
                 Icon(Icons.Default.Edit, null)
@@ -79,9 +89,9 @@ fun App(
           )
 
           NavigationBarItem(
-              selected = false,
+              selected = state is AiState,
               onClick = {
-                // TODO: Open the AI
+                appContext.tell(AiTabClicked)
               },
               icon = {
                 Icon(Icons.Default.Bolt, null)
@@ -108,6 +118,13 @@ fun App(
 
       is SettingsState -> {
         SettingsContent(
+            state = state,
+            modifier = Modifier.padding(innerPadding),
+        )
+      }
+
+      is AiState -> {
+        AiContent(
             state = state,
             modifier = Modifier.padding(innerPadding),
         )
