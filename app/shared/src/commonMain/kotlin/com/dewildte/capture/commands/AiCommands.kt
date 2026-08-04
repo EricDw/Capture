@@ -1,4 +1,6 @@
 package com.dewildte.capture.commands
 
-data class SendAiMessage(val message: String) : Command
+import com.dewildte.capture.data.Conversation
+
+data class SendAiMessage(val message: String, val conversation: Conversation) : Command
 data object StopAiGeneration : Command

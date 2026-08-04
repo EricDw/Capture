@@ -259,7 +259,7 @@ class AiStateImpl(
                     val messageToSend = currentMessage
                     currentMessage = ""
                     isGenerating = true
-                    context.controller.tell(SendAiMessage(messageToSend))
+                    context.controller.tell(SendAiMessage(messageToSend, updatedConversation))
                     context.controller.tell(SaveConversationToStorage(updatedConversation))
                 }
             }

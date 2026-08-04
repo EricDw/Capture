@@ -33,8 +33,10 @@ import com.dewildte.capture.events.*
 import com.dewildte.capture.queries.GetCurrentDateString
 import com.dewildte.capture.utils.Actor
 import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Message as LmMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -153,6 +155,7 @@ class MainActivity : ComponentActivity(), Actor {
     private val engineMutex = Mutex()
     private var aiJob: Job? = null
     private var aiConversation: com.google.ai.edge.litertlm.Conversation? = null
+    private var currentAiConversationId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -313,7 +316,7 @@ class MainActivity : ComponentActivity(), Actor {
             }
 
             is SendAiMessage -> {
-                sendAiMessage(message.message)
+                sendAiMessage(message.message, message.conversation)
             }
 
             is StopAiGeneration -> {
@@ -356,7 +359,7 @@ class MainActivity : ComponentActivity(), Actor {
 
     }
 
-    private fun sendAiMessage(message: String) {
+    private fun sendAiMessage(message: String, conversation: Conversation) {
         logMessage(LogData(LogLevel.INFO, TAG, "Sending AI message: ${message.take(50)}..."))
         if (!::engine.isInitialized) {
             logMessage(LogData(LogLevel.ERROR, TAG, "AI Engine not initialized"))
@@ -367,8 +370,23 @@ class MainActivity : ComponentActivity(), Actor {
         aiJob?.cancel()
         aiJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
-                if (aiConversation == null) {
-                    aiConversation = engine.createConversation()
+                if (aiConversation == null || currentAiConversationId != conversation.id) {
+                    aiConversation?.close()
+                    
+                    // Map history: all messages EXCEPT the last two (new user message and empty AI message)
+                    val history = conversation.messages
+                        .dropLast(2)
+                        .map { msg ->
+                            when (msg.role) {
+                                MessageRole.USER -> LmMessage.user(msg.content)
+                                MessageRole.AI -> LmMessage.model(msg.content)
+                            }
+                        }
+                    
+                    val config = ConversationConfig(initialMessages = history)
+                    aiConversation = engine.createConversation(config)
+                    currentAiConversationId = conversation.id
+                    logMessage(LogData(LogLevel.DEBUG, TAG, "AI Conversation (re)initialized for: ${conversation.id} with history size: ${history.size}"))
                 }
 
                 aiConversation?.let { convo ->
@@ -613,7 +631,8 @@ class MainActivity : ComponentActivity(), Actor {
 
                     engine = Engine(engineConfig)
                     engine.initialize()
-                    aiConversation = engine.createConversation()
+                    aiConversation = null
+                    currentAiConversationId = null
 
                     logMessage(LogData(LogLevel.INFO, TAG, "AI Engine initialized successfully with model: $name"))
                     appContext.tell(ModelInitializationSuccess(name))
