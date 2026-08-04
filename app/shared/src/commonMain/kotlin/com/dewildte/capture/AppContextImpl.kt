@@ -34,6 +34,7 @@ class AppContextImpl(
     override var isAiModelLoading: Boolean by mutableStateOf(false)
     override var isAiModelReady: Boolean by mutableStateOf(false)
     override var selectedAiModelName: String? by mutableStateOf(null)
+    override var availableAiModels: MutableList<com.dewildte.capture.data.ModelInfo> = mutableStateListOf()
     override var aiModelError: String? by mutableStateOf(null)
 
     override fun tell(message: Any) {
@@ -62,6 +63,10 @@ class AppContextImpl(
                 isAiModelReady = true
                 selectedAiModelName = event.name
                 aiModelError = null
+            }
+            is AvailableModelsLoaded -> {
+                availableAiModels.clear()
+                availableAiModels.addAll(event.models)
             }
             is ModelInitializationFailed -> {
                 isAiModelLoading = false

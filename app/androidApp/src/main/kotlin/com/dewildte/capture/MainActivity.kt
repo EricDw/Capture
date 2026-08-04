@@ -18,34 +18,68 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.edit
-import androidx.core.net.toFile
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
-import com.dewildte.capture.commands.*
+import com.dewildte.capture.commands.DeleteConversationFromStorage
+import com.dewildte.capture.commands.DeleteModel
+import com.dewildte.capture.commands.LoadAvailableModels
+import com.dewildte.capture.commands.LoadConversationsFromStorage
+import com.dewildte.capture.commands.LoadSelectedFile
+import com.dewildte.capture.commands.LoadSnippetsFile
+import com.dewildte.capture.commands.LogMessage
+import com.dewildte.capture.commands.SaveConversationToStorage
+import com.dewildte.capture.commands.SelectAiStorageFolder
+import com.dewildte.capture.commands.SelectModelFile
+import com.dewildte.capture.commands.SelectSnippetsFile
+import com.dewildte.capture.commands.SelectTextFile
+import com.dewildte.capture.commands.SendAiMessage
+import com.dewildte.capture.commands.StopAiGeneration
+import com.dewildte.capture.commands.SwitchModel
+import com.dewildte.capture.commands.UpdateSelectedFileContent
 import com.dewildte.capture.data.Conversation
 import com.dewildte.capture.data.LogData
 import com.dewildte.capture.data.LogLevel
 import com.dewildte.capture.data.Message
 import com.dewildte.capture.data.MessageRole
+import com.dewildte.capture.data.ModelInfo
 import com.dewildte.capture.data.TextFile
-import com.dewildte.capture.events.*
+import com.dewildte.capture.events.AiResponseChunk
+import com.dewildte.capture.events.AiResponseComplete
+import com.dewildte.capture.events.AiResponseError
+import com.dewildte.capture.events.AiStorageFolderSelected
+import com.dewildte.capture.events.AvailableModelsLoaded
+import com.dewildte.capture.events.ConversationsLoaded
+import com.dewildte.capture.events.FailedToLoadSelectedFile
+import com.dewildte.capture.events.FailedToLoadSelectedSnippetsFile
+import com.dewildte.capture.events.FailedToSelectFile
+import com.dewildte.capture.events.FailedToSelectModelFile
+import com.dewildte.capture.events.FailedToSelectSnippetsFile
+import com.dewildte.capture.events.FailedToSelectStorageFolder
+import com.dewildte.capture.events.FailedToUpdateFileContent
+import com.dewildte.capture.events.FileSelected
+import com.dewildte.capture.events.ModelInitializationFailed
+import com.dewildte.capture.events.ModelInitializationStarted
+import com.dewildte.capture.events.ModelInitializationSuccess
+import com.dewildte.capture.events.SnippetsFileSelected
+import com.dewildte.capture.events.SystemBackButtonClicked
 import com.dewildte.capture.queries.GetCurrentDateString
 import com.dewildte.capture.utils.Actor
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
-import com.google.ai.edge.litertlm.Message as LmMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.time.LocalDateTime
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import com.google.ai.edge.litertlm.Message as LmMessage
 
 class MainActivity : ComponentActivity(), Actor {
 
@@ -336,6 +370,18 @@ class MainActivity : ComponentActivity(), Actor {
 
             is LoadConversationsFromStorage -> {
                 loadConversations()
+            }
+
+            is LoadAvailableModels -> {
+                appContext.tell(AvailableModelsLoaded(getAvailableModels()))
+            }
+
+            is SwitchModel -> {
+                onSelectedModelFileUriFound(Uri.parse(message.model.uri))
+            }
+
+            is DeleteModel -> {
+                deleteModel(message.model)
             }
 
             is SaveConversationToStorage -> {
@@ -637,6 +683,18 @@ class MainActivity : ComponentActivity(), Actor {
                     logMessage(LogData(LogLevel.INFO, TAG, "AI Engine initialized successfully with model: $name"))
                     appContext.tell(ModelInitializationSuccess(name))
 
+                    // Persist model in list
+                    val currentModels = getAvailableModels().toMutableList()
+                    if (currentModels.none { it.uri == uri.toString() }) {
+                        currentModels.add(ModelInfo(name, uri.toString()))
+                        saveAvailableModels(currentModels)
+                        appContext.tell(AvailableModelsLoaded(currentModels))
+                    }
+
+                    getPreferences(MODE_PRIVATE).edit {
+                        putString(KEY_SELECTED_MODEL_FILE_URI, uri.toString())
+                    }
+
                 } catch (cause: Throwable) {
                     logMessage(LogData(LogLevel.ERROR, TAG, "Failed to initialize AI Engine: ${cause.message}"))
                     appContext.tell(ModelInitializationFailed(cause.message ?: "Unknown initialization error"))
@@ -659,12 +717,45 @@ class MainActivity : ComponentActivity(), Actor {
         }
     }
 
+    private fun getAvailableModels(): List<ModelInfo> {
+        val json = getPreferences(MODE_PRIVATE).getString(KEY_AVAILABLE_MODELS, null) ?: return emptyList()
+        return try {
+            Json.decodeFromString(json)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun saveAvailableModels(models: List<ModelInfo>) {
+        val json = Json.encodeToString(models)
+        getPreferences(MODE_PRIVATE).edit {
+            putString(KEY_AVAILABLE_MODELS, json)
+        }
+    }
+
+    private fun deleteModel(model: ModelInfo) {
+        val currentModels = getAvailableModels().toMutableList()
+        currentModels.removeAll { it.uri == model.uri }
+        saveAvailableModels(currentModels)
+        appContext.tell(AvailableModelsLoaded(currentModels))
+
+        // If deleted model was the selected one, clear selection
+        val selectedUri = getPreferences(MODE_PRIVATE).getString(KEY_SELECTED_MODEL_FILE_URI, null)
+        if (selectedUri == model.uri) {
+            getPreferences(MODE_PRIVATE).edit {
+                putString(KEY_SELECTED_MODEL_FILE_URI, null)
+            }
+            // Ideally we'd close the engine too, or switch to another one
+        }
+    }
+
     companion object {
         private const val TAG = "MainActivity"
         private const val KEY_SELECTED_FILE_URI = "key_selected_file_uri"
         private const val KEY_SELECTED_SNIPPETS_FILE_URI = "key_selected_snippets_file_uri"
         private const val KEY_SELECTED_MODEL_FILE_URI = "key_selected_model_file_uri"
         private const val KEY_AI_STORAGE_FOLDER_URI = "key_ai_storage_folder_uri"
+        private const val KEY_AVAILABLE_MODELS = "key_available_models"
     }
 }
 

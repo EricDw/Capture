@@ -8,6 +8,7 @@ interface AiState : AppState {
     val currentMessage: String
     val isGenerating: Boolean
     val selectedModelName: String?
+    val availableModels: List<com.dewildte.capture.data.ModelInfo>
     val isModelLoading: Boolean
     val isModelReady: Boolean
     val error: String?

@@ -35,6 +35,7 @@ class AiStateImpl(
     private var inferenceError: String? by mutableStateOf(null)
 
     override val selectedModelName: String? get() = context.selectedAiModelName
+    override val availableModels: List<com.dewildte.capture.data.ModelInfo> get() = context.availableAiModels
     override val isModelLoading: Boolean get() = context.isAiModelLoading
     override val isModelReady: Boolean get() = context.isAiModelReady
     override val error: String? get() = context.aiModelError ?: inferenceError
@@ -56,6 +57,7 @@ class AiStateImpl(
                     showLoading = false
                 }
                 context.controller.tell(LoadConversationsFromStorage)
+                context.controller.tell(LoadAvailableModels)
             }
 
             is AiContentEvent -> {
@@ -281,6 +283,14 @@ class AiStateImpl(
 
             is SelectModelClicked -> {
                 context.controller.tell(SelectModelFile)
+            }
+
+            is SwitchModelClicked -> {
+                context.controller.tell(SwitchModel(event.model))
+            }
+
+            is DeleteModelClicked -> {
+                context.controller.tell(DeleteModel(event.model))
             }
 
             is ModelSelected -> {

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -20,6 +21,7 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.documentfile)
+    implementation(libs.kotlinx.serialization.json)
     debugImplementation(libs.compose.uiTooling)
     implementation(libs.litertlm.android)
     implementation(platform(libs.kotlinx.coroutines.bom))

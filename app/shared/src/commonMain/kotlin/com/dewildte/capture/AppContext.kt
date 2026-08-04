@@ -13,6 +13,7 @@ interface AppContext : Actor {
     val isAiModelLoading: Boolean
     val isAiModelReady: Boolean
     val selectedAiModelName: String?
+    val availableAiModels: List<com.dewildte.capture.data.ModelInfo>
     val aiModelError: String?
 
     val controller: Actor
@@ -33,5 +34,6 @@ interface MutableAppContext: AppContext {
     override var isAiModelLoading: Boolean
     override var isAiModelReady: Boolean
     override var selectedAiModelName: String?
+    override var availableAiModels: MutableList<com.dewildte.capture.data.ModelInfo>
     override var aiModelError: String?
 }

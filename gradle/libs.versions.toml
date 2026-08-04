@@ -14,6 +14,7 @@ junit = "4.13.2"
 kotlin = "2.4.10"
 kotlin-wrappers = "2026.7.7"
 kotlinx-coroutines = "1.11.0"
+kotlinx-serialization = "1.11.0"
 ktor = "3.5.0"
 logback = "1.6.1"
 material3 = "1.11.0-alpha07"
@@ -52,6 +53,7 @@ ktor-serverNetty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "kt
 ktor-serverTestHost = { module = "io.ktor:ktor-server-test-host-jvm", version.ref = "ktor" }
 material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 wrappers-browser = { module = "org.jetbrains.kotlin-wrappers:kotlin-browser", version.ref = "kotlin-wrappers" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3Version" }
 androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
@@ -63,4 +65,5 @@ composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMul
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }

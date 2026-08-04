@@ -1,37 +1,58 @@
 package com.dewildte.capture.components
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.dewildte.capture.AiState
 import com.dewildte.capture.data.Conversation
-import com.dewildte.capture.events.BackToConversationsClicked
-import com.dewildte.capture.events.SelectModelClicked
-import com.dewildte.capture.events.SelectStorageFolderClicked
+import com.dewildte.capture.data.ModelInfo
+import com.dewildte.capture.events.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AiTopBar(
     currentConversation: Conversation?,
     selectedModelName: String?,
+    availableModels: List<ModelInfo>,
     isModelLoading: Boolean,
     error: String?,
     onBackClick: () -> Unit = {},
     onSelectFolderClick: () -> Unit = {},
     onSelectModelClick: () -> Unit = {},
+    onSwitchModel: (ModelInfo) -> Unit = {},
+    onDeleteModel: (ModelInfo) -> Unit = {},
 ) {
+    var showModelMenu by remember { mutableStateOf(false) }
+
     TopAppBar(
         title = {
-            androidx.compose.foundation.layout.Column {
+            Column {
                 Text(
                     text = currentConversation?.title ?: "AI"
                 )
@@ -63,11 +84,60 @@ fun AiTopBar(
         },
         actions = {
             if (currentConversation == null) {
-                IconButton(onClick = onSelectModelClick) {
-                    Icon(
-                        imageVector = Icons.Default.Psychology,
-                        contentDescription = "Select AI model",
-                    )
+                Box {
+                    IconButton(onClick = { showModelMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Psychology,
+                            contentDescription = "Select AI model",
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showModelMenu,
+                        onDismissRequest = { showModelMenu = false }
+                    ) {
+                        if (availableModels.isNotEmpty()) {
+                            availableModels.forEach { model ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = model.name,
+                                                fontWeight = if (model.name == selectedModelName) FontWeight.Bold else FontWeight.Normal,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(onClick = { onDeleteModel(model) }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete model",
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        onSwitchModel(model)
+                                        showModelMenu = false
+                                    }
+                                )
+                            }
+                            HorizontalDivider()
+                        }
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Add new model...")
+                                }
+                            },
+                            onClick = {
+                                onSelectModelClick()
+                                showModelMenu = false
+                            }
+                        )
+                    }
                 }
                 IconButton(onClick = onSelectFolderClick) {
                     Icon(
@@ -85,60 +155,13 @@ fun AiTopBar(state: AiState) {
     AiTopBar(
         currentConversation = state.currentConversation,
         selectedModelName = state.selectedModelName,
+        availableModels = state.availableModels,
         isModelLoading = state.isModelLoading,
         error = state.error,
         onBackClick = { state.tell(BackToConversationsClicked) },
         onSelectFolderClick = { state.tell(SelectStorageFolderClicked) },
         onSelectModelClick = { state.tell(SelectModelClicked) },
-    )
-}
-
-@Preview
-@Composable
-private fun AiTopBarListPreview() {
-    AiTopBar(
-        currentConversation = null,
-        selectedModelName = "Gemma 2B",
-        isModelLoading = false,
-        error = null
-    )
-}
-
-@Preview
-@Composable
-private fun AiTopBarNoModelPreview() {
-    AiTopBar(
-        currentConversation = null,
-        selectedModelName = null,
-        isModelLoading = false,
-        error = null
-    )
-}
-
-@Preview
-@Composable
-private fun AiTopBarLoadingPreview() {
-    AiTopBar(
-        currentConversation = null,
-        selectedModelName = "Gemma 2B",
-        isModelLoading = true,
-        error = null
-    )
-}
-
-@Preview
-@Composable
-private fun AiTopBarChatPreview() {
-    AiTopBar(
-        currentConversation = Conversation(
-            id = "1",
-            title = "Trip Planning",
-            messages = emptyList(),
-            createdAt = 0,
-            updatedAt = 0,
-        ),
-        selectedModelName = "Gemma 2B",
-        isModelLoading = false,
-        error = null
+        onSwitchModel = { state.tell(SwitchModelClicked(it)) },
+        onDeleteModel = { state.tell(DeleteModelClicked(it)) },
     )
 }
