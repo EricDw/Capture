@@ -14,23 +14,30 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.dewildte.capture.data.Conversation
 import com.dewildte.capture.data.Message
 import com.dewildte.capture.data.MessageRole
-import com.dewildte.capture.events.AiContentEvent
-import com.dewildte.capture.events.MessageInputChanged
-import com.dewildte.capture.events.SendMessageClicked
-import com.dewildte.capture.events.StopGeneratingClicked
+import com.dewildte.capture.events.*
 
 @Composable
 fun ChatContent(
@@ -50,7 +57,9 @@ fun ChatContent(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier.fillMaxSize()
+    ) {
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -63,7 +72,10 @@ fun ChatContent(
                 items = conversation.messages,
                 key = { it.id }
             ) { message ->
-                MessageBubble(message = message)
+                MessageBubble(
+                    message = message,
+                    onOpenFile = { onEvent(OpenFileRequested(it)) }
+                )
             }
 
             if (isGenerating) {
@@ -74,6 +86,15 @@ fun ChatContent(
         }
 
         val textFieldState = rememberTextFieldState(currentMessage)
+
+        // Sync external state changes (like clearing) to the text field
+        LaunchedEffect(currentMessage) {
+            if (currentMessage.isEmpty() && textFieldState.text.isNotEmpty()) {
+                textFieldState.edit { 
+                    replace(0, length, "")
+                }
+            }
+        }
 
         // Sync text field state changes back to the state
         val textFlow = remember(textFieldState) {
@@ -99,14 +120,92 @@ fun ChatContent(
 @Composable
 private fun MessageBubble(
     message: Message,
+    onOpenFile: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isUser = message.role == MessageRole.USER
 
-    Row(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
     ) {
+        if (!isUser && !message.thinking.isNullOrBlank()) {
+            var expanded by remember { mutableStateOf(false) }
+            
+            Surface(
+                onClick = { expanded = !expanded },
+                color = Color.Transparent,
+                modifier = Modifier.padding(bottom = 4.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "Thinking...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+
+            if (expanded) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 8.dp, bottom = 8.dp, end = 32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = message.thinking,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        if (!isUser && message.toolCall != null) {
+            val isError = message.isToolError || 
+                        message.content.contains("Error calling", ignoreCase = true) || 
+                        message.content.contains("401 Unauthorized", ignoreCase = true)
+            
+            val icon = if (isError) Icons.Default.Error else Icons.Default.Build
+
+            AssistChip(
+                onClick = {},
+                label = {
+                    Text(
+                        text = if (isError) "Tool error: ${message.toolCall}" else "Used tool: ${message.toolCall}",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    labelColor = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    leadingIconContentColor = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                ),
+                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+            )
+        }
+        
         Box(
             modifier = Modifier
                 .widthIn(max = 300.dp)
@@ -127,14 +226,43 @@ private fun MessageBubble(
                 )
                 .padding(12.dp)
         ) {
+            val annotatedContent = buildAnnotatedString {
+                val text = message.content
+                val regex = Regex("[a-zA-Z0-9_-]+\\.txt")
+                var lastIndex = 0
+                regex.findAll(text).forEach { match ->
+                    append(text.substring(lastIndex, match.range.first))
+                    val fileName = match.value
+                    val link = androidx.compose.ui.text.LinkAnnotation.Clickable(
+                        tag = "FILE",
+                        styles = androidx.compose.ui.text.TextLinkStyles(
+                            style = SpanStyle(
+                                color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                            )
+                        ),
+                        linkInteractionListener = {
+                            onOpenFile(fileName)
+                        }
+                    )
+                    withLink(link) {
+                        append(fileName)
+                    }
+                    lastIndex = match.range.last + 1
+                }
+                append(text.substring(lastIndex))
+            }
+
             Text(
-                text = message.content,
-                color = if (isUser) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSecondaryContainer
-                },
-                style = MaterialTheme.typography.bodyMedium,
+                text = annotatedContent,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = if (isUser) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    }
+                )
             )
         }
     }
@@ -145,20 +273,31 @@ private fun TypingIndicator(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier,
+        modifier = modifier.padding(vertical = 4.dp, horizontal = 8.dp),
         horizontalArrangement = Arrangement.Start,
     ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            tonalElevation = 1.dp
         ) {
-            Text(
-                text = "● ● ●",
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "● ● ●",
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "AI is generating...",
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
         }
     }
 }
+

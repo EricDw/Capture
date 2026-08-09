@@ -18,6 +18,7 @@ import com.dewildte.capture.EditorState
 import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.events.EditorContentEvent
 import com.dewildte.capture.events.FileTextChanged
+import com.dewildte.capture.events.InsertSnippetClicked
 import com.dewildte.capture.events.SearchTermChanged
 import com.dewildte.capture.events.SnippetInserted
 import com.dewildte.capture.utils.samples.SampleText
@@ -74,18 +75,29 @@ fun EditorContent(
 
         LaunchedEffect(onEvent) {
             textFlow.collect { newText ->
-                onEvent(FileTextChanged(newText.toString()))
+                val textString = newText.toString()
+                if (textString.endsWith("/") && textString != textFile.contents) {
+                    onEvent(InsertSnippetClicked)
+                }
+                onEvent(FileTextChanged(textString))
             }
         }
 
         LaunchedEffect(textFile.path) {
-            textFieldState.setTextAndPlaceCursorAtEnd(textFile.contents)
+            if (textFieldState.text.toString() != textFile.contents) {
+                textFieldState.setTextAndPlaceCursorAtEnd(textFile.contents)
+            }
         }
 
         LaunchedEffect(snippetToInsert) {
             snippetToInsert?.let { snippet ->
                 textFieldState.edit {
-                    insert(this.selection.start, snippet)
+                    // Remove the slash if it's there
+                    val cursor = selection.start
+                    if (cursor > 0 && asCharSequence()[cursor - 1] == '/') {
+                        replace(cursor - 1, cursor, "")
+                    }
+                    insert(selection.start, snippet)
                 }
                 onEvent(SnippetInserted)
             }

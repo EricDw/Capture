@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.dewildte.capture.commands.*
 import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.events.*
+import com.dewildte.capture.navigation.AppRoute
 import com.dewildte.capture.queries.GetCurrentDateString
 import com.dewildte.capture.utils.tellErrorLog
 
@@ -112,7 +113,9 @@ class EditorStateImpl(
     private fun handleNavigationEvent(event: NavigationEvent) {
         when (event) {
             is AiTabClicked -> {
-                context.tell(TransitionToState(context.aiState!!))
+                if (!context.navBackStack.contains(AppRoute.AiAssistant)) {
+                    context.navBackStack.add(AppRoute.AiAssistant)
+                }
             }
 
             is MenuTabClicked -> {
@@ -151,6 +154,11 @@ class EditorStateImpl(
                 context.controller.tell(SelectTextFile)
             }
 
+            is SelectSnippetsFileClicked -> {
+                moreMenuExpanded = false
+                context.controller.tell(SelectSnippetsFile())
+            }
+
             is SettingsClicked -> {
                 moreMenuExpanded = false
                 context.tell(TransitionToState(SettingsStateImpl()))
@@ -170,10 +178,6 @@ class EditorStateImpl(
 
             is SnippetSelectorDismissRequested -> {
                 snippetSelectorExpanded = false
-            }
-
-            is SelectSnippetsFileClicked -> {
-                context.controller.tell(SelectSnippetsFile())
             }
 
             is SnippetClicked -> {

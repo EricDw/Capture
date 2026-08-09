@@ -15,3 +15,5 @@ data object BackToConversationsClicked : AiContentEvent
 data object SelectStorageFolderClicked : AiContentEvent
 data object SelectModelClicked : AiContentEvent
 data class ModelSelected(val name: String) : AiContentEvent
+
+data class OpenFileRequested(val fileName: String) : AiContentEvent

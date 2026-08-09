@@ -9,26 +9,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Card
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dewildte.capture.data.Conversation
-import com.dewildte.capture.events.AiContentEvent
-import com.dewildte.capture.events.ConversationClicked
-import com.dewildte.capture.events.DeleteConversationClicked
-import com.dewildte.capture.events.NewConversationClicked
+import com.dewildte.capture.events.*
 
 @Composable
 fun ConversationListContent(
@@ -38,24 +32,50 @@ fun ConversationListContent(
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
-        if (conversations.isEmpty()) {
-            EmptyConversationsState(
-                modifier = Modifier.align(Alignment.Center)
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(
-                    items = conversations,
-                    key = { it.id }
-                ) { conversation ->
-                    ConversationCard(
-                        conversation = conversation,
-                        onClick = { onEvent(ConversationClicked(conversation.id)) },
-                        onDeleteClick = { onEvent(DeleteConversationClicked(conversation.id)) },
-                    )
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (!isModelReady) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("AI Model Not Loaded", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("You need to select a .litertlm model file to start chatting.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                        TextButton(onClick = { onEvent(SelectModelClicked) }) {
+                            Text("Select")
+                        }
+                    }
+                }
+            }
+
+            if (conversations.isEmpty()) {
+                EmptyConversationsState(
+                    isModelReady = isModelReady,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(
+                        items = conversations,
+                        key = { it.id }
+                    ) { conversation ->
+                        ConversationCard(
+                            conversation = conversation,
+                            onClick = { onEvent(ConversationClicked(conversation.id)) },
+                            onDeleteClick = { onEvent(DeleteConversationClicked(conversation.id)) },
+                        )
+                    }
                 }
             }
         }
@@ -124,21 +144,40 @@ private fun ConversationCard(
 
 @Composable
 private fun EmptyConversationsState(
+    isModelReady: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.fillMaxSize().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "No conversations yet",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = "Tap + to start a new conversation",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (isModelReady) {
+            Text(
+                text = "Ready to assist!",
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Ask me to summarize a file, search your notes, or check your Google Calendar.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        } else {
+            Text(
+                text = "Let's get started",
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Once you load an AI model, you'll be able to create new conversations here.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }

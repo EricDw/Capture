@@ -42,6 +42,8 @@ fun AiTopBar(
     availableModels: List<ModelInfo>,
     isModelLoading: Boolean,
     error: String?,
+    activeToolName: String? = null,
+    tokenUsage: Int? = null,
     onBackClick: () -> Unit = {},
     onSelectFolderClick: () -> Unit = {},
     onSelectModelClick: () -> Unit = {},
@@ -57,14 +59,26 @@ fun AiTopBar(
                     text = currentConversation?.title ?: "AI"
                 )
                 val subtitle = when {
+                    activeToolName != null -> "AI is working: $activeToolName..."
                     isModelLoading -> "Loading model..."
                     error != null -> "Error: $error"
-                    else -> selectedModelName ?: "No model selected"
+                    else -> buildString {
+                        append(selectedModelName ?: "No model selected")
+                        if (tokenUsage != null) {
+                            val formatted = if (tokenUsage >= 1000) {
+                                "${tokenUsage / 1000}.${(tokenUsage % 1000) / 100}k"
+                            } else {
+                                "$tokenUsage"
+                            }
+                            append(" • $formatted / 8k")
+                        }
+                    }
                 }
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = when {
+                        activeToolName != null -> MaterialTheme.colorScheme.primary
                         error != null -> MaterialTheme.colorScheme.error
                         selectedModelName == null && !isModelLoading -> MaterialTheme.colorScheme.error
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -158,6 +172,8 @@ fun AiTopBar(state: AiState) {
         availableModels = state.availableModels,
         isModelLoading = state.isModelLoading,
         error = state.error,
+        activeToolName = state.activeToolName,
+        tokenUsage = state.tokenUsage,
         onBackClick = { state.tell(BackToConversationsClicked) },
         onSelectFolderClick = { state.tell(SelectStorageFolderClicked) },
         onSelectModelClick = { state.tell(SelectModelClicked) },

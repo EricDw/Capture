@@ -3,6 +3,7 @@
 
     <uses-permission-sdk-23 android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission-sdk-23 android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
             android:allowBackup="true"
@@ -13,7 +14,8 @@
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
                 android:exported="true"
-                android:name=".MainActivity">
+                android:name=".MainActivity"
+                android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 

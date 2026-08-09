@@ -33,4 +33,16 @@ interface EditorState : AppState {
 
 interface SettingsState : AppState {
     val snippets: List<String>
+    val mcpServers: List<String>
+    val searchToolEnabled: Boolean
+    val isGoogleAuthenticated: Boolean
+    val googleUserEmail: String?
+    val googleDriveEnabled: Boolean
+    val googleCalendarEnabled: Boolean
+    val googleGmailEnabled: Boolean
+    val googleTasksEnabled: Boolean
+    val googleDocsEnabled: Boolean
+    val googleSheetsEnabled: Boolean
+    val googleSlidesEnabled: Boolean
+    val googleClientId: String?
 }

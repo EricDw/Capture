@@ -12,4 +12,6 @@ interface AiState : AppState {
     val isModelLoading: Boolean
     val isModelReady: Boolean
     val error: String?
+    val activeToolName: String?
+    val tokenUsage: Int?
 }

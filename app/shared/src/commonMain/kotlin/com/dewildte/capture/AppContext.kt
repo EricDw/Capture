@@ -1,5 +1,8 @@
 package com.dewildte.capture
 
+import com.dewildte.capture.data.FileNode
+import com.dewildte.capture.events.AiToolCallPermissionRequest
+import com.dewildte.capture.navigation.AppRoute
 import com.dewildte.capture.utils.Actor
 
 interface AppContext : Actor {
@@ -17,6 +20,33 @@ interface AppContext : Actor {
     val selectedAiModelName: String?
     val availableAiModels: List<com.dewildte.capture.data.ModelInfo>
     val aiModelError: String?
+
+    val mcpServers: List<String>
+    val searchToolEnabled: Boolean
+
+    val isGoogleAuthenticated: Boolean
+    val googleUserEmail: String?
+
+    val googleDriveEnabled: Boolean
+    val googleCalendarEnabled: Boolean
+    val googleGmailEnabled: Boolean
+    val googleTasksEnabled: Boolean
+    val googleDocsEnabled: Boolean
+    val googleSheetsEnabled: Boolean
+    val googleSlidesEnabled: Boolean
+
+    val googleClientId: String?
+
+    val activePermissionRequest: AiToolCallPermissionRequest?
+    val activeToolName: String?
+    val tokenUsage: Int?
+
+    val workspaceNodes: List<FileNode>
+    val workspaceFolderUri: String?
+    val isWorkspaceLoading: Boolean
+    val isDrawerOpen: Boolean
+    val expandedFolders: Map<String, Boolean>
+    val navBackStack: List<AppRoute>
 
     val controller: Actor
 
@@ -41,4 +71,31 @@ interface MutableAppContext: AppContext {
     override var selectedAiModelName: String?
     override var availableAiModels: MutableList<com.dewildte.capture.data.ModelInfo>
     override var aiModelError: String?
+
+    override var mcpServers: MutableList<String>
+    override var searchToolEnabled: Boolean
+
+    override var isGoogleAuthenticated: Boolean
+    override var googleUserEmail: String?
+
+    override var googleDriveEnabled: Boolean
+    override var googleCalendarEnabled: Boolean
+    override var googleGmailEnabled: Boolean
+    override var googleTasksEnabled: Boolean
+    override var googleDocsEnabled: Boolean
+    override var googleSheetsEnabled: Boolean
+    override var googleSlidesEnabled: Boolean
+
+    override var googleClientId: String?
+
+    override var activePermissionRequest: AiToolCallPermissionRequest?
+    override var activeToolName: String?
+    override var tokenUsage: Int?
+
+    override var workspaceNodes: MutableList<FileNode>
+    override var workspaceFolderUri: String?
+    override var isWorkspaceLoading: Boolean
+    override var isDrawerOpen: Boolean
+    override val expandedFolders: MutableMap<String, Boolean>
+    override val navBackStack: MutableList<AppRoute>
 }
