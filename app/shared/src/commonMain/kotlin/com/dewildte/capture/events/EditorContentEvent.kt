@@ -9,6 +9,7 @@ data object MoreMenuDismissRequested : EditorContentEvent
 data object SelectFileClicked : EditorContentEvent
 data object SelectSnippetsFileClicked : EditorContentEvent
 data object SettingsClicked : EditorContentEvent
+data object NewNoteClicked : EditorContentEvent
 
 data object SnippetSelectorDismissRequested : EditorContentEvent
 

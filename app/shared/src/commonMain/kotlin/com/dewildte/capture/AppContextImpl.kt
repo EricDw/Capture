@@ -14,6 +14,7 @@ import com.dewildte.capture.commands.SetContext
 import com.dewildte.capture.commands.Start
 import com.dewildte.capture.commands.TransitionToState
 import com.dewildte.capture.data.FileNode
+import com.dewildte.capture.data.ModelInfo
 import com.dewildte.capture.events.*
 import com.dewildte.capture.navigation.AppRoute
 import com.dewildte.capture.queries.Query
@@ -41,6 +42,7 @@ class AppContextImpl(
             val current = _editorState
             if (current != null) return current
             val new = EditorStateImpl()
+            new.tell(SetContext(this))
             _editorState = new
             return new
         }
@@ -54,6 +56,7 @@ class AppContextImpl(
             val current = _aiState
             if (current != null) return current
             val new = AiStateImpl()
+            new.tell(SetContext(this))
             _aiState = new
             return new
         }
@@ -64,7 +67,7 @@ class AppContextImpl(
     override var isAiModelLoading: Boolean by mutableStateOf(false)
     override var isAiModelReady: Boolean by mutableStateOf(false)
     override var selectedAiModelName: String? by mutableStateOf(null)
-    override var availableAiModels: MutableList<com.dewildte.capture.data.ModelInfo> = mutableStateListOf()
+    override var availableAiModels: MutableList<ModelInfo> = mutableStateListOf()
     override var aiModelError: String? by mutableStateOf(null)
 
     override var mcpServers: MutableList<String> = mutableStateListOf()
@@ -150,6 +153,7 @@ class AppContextImpl(
             is SystemBackButtonClicked -> {
                 if (navBackStack.size > 1) {
                     navBackStack.removeAt(navBackStack.size - 1)
+                    syncStateToBackStack()
                 }
             }
             else -> {
@@ -222,6 +226,22 @@ class AppContextImpl(
         }
     }
 
+    private fun syncStateToBackStack() {
+        val lastRoute = navBackStack.lastOrNull() ?: AppRoute.Editor
+        when (lastRoute) {
+            AppRoute.Editor -> tell(TransitionToState(editorState!!))
+            AppRoute.Settings -> {
+                // If it's not already settings, transition to it.
+                // Note: SettingsStateImpl doesn't have a singleton in AppContext yet.
+                // Maybe we should just use the current state if it's already SettingsState?
+                if (state !is SettingsState) {
+                    tell(TransitionToState(SettingsStateImpl()))
+                }
+            }
+            AppRoute.AiAssistant -> tell(TransitionToState(aiState!!))
+        }
+    }
+
     companion object {
         private const val TAG = "AppContext"
     }
@@ -242,4 +262,3 @@ fun rememberAppContext(
         )
     }
 }
-

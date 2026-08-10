@@ -52,15 +52,24 @@ class SettingsStateImpl(
                 parseSnippets(message.file)
             }
 
-            is BackClicked, is SystemBackButtonClicked -> {
+            is BackClicked -> {
                 context?.let { ctx ->
                     if (ctx.navBackStack.size > 1) {
                         ctx.navBackStack.removeAt(ctx.navBackStack.size - 1)
+                        // Transition to the new top of stack is handled by syncStateToBackStack in AppContextImpl
+                        // if we triggered this via SystemBackButtonClicked, but for BackClicked we need to call it or handle it.
+                        // Actually, let's just make AppContextImpl handle BackClicked too or use a common event.
+                        ctx.tell(SystemBackButtonClicked) 
                     } else {
                         ctx.navBackStack.clear()
                         ctx.navBackStack.add(AppRoute.Editor)
+                        ctx.tell(TransitionToState(ctx.editorState!!))
                     }
                 }
+            }
+
+            is SystemBackButtonClicked -> {
+                // Handled in AppContextImpl, no-op here to avoid double-popping
             }
 
             is NavigationEvent -> {

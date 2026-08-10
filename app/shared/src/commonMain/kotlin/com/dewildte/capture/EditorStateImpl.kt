@@ -24,7 +24,7 @@ class EditorStateImpl(
 ) : EditorState {
 
     private lateinit var context: MutableAppContext
-    private lateinit var previousState: AppState
+    private var previousState: AppState? = null
 
     override var textFile: TextFile by mutableStateOf(textFile)
     override var searchMode: Boolean by mutableStateOf(searchMode)
@@ -42,7 +42,9 @@ class EditorStateImpl(
 
             is SetContext -> {
                 context = message.context
-                previousState = context.state
+                if (message.context.state != this) {
+                    previousState = context.state
+                }
             }
 
             is Start -> {
@@ -147,6 +149,10 @@ class EditorStateImpl(
 
             is MoreMenuDismissRequested -> {
                 moreMenuExpanded = false
+            }
+
+            is NewNoteClicked -> {
+                textFile = TextFile()
             }
 
             is SelectFileClicked -> {
