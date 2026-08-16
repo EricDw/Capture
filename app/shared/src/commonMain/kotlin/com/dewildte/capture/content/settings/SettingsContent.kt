@@ -18,7 +18,6 @@ import com.dewildte.capture.events.*
 @Composable
 fun SettingsContent(
     modifier: Modifier = Modifier,
-    snippets: List<String> = emptyList(),
     mcpServers: List<String> = emptyList(),
     searchToolEnabled: Boolean = true,
     isGoogleAuthenticated: Boolean = false,
@@ -203,7 +202,6 @@ fun SettingsContent(
 ) {
     SettingsContent(
         modifier = modifier,
-        snippets = state.snippets,
         mcpServers = state.mcpServers,
         searchToolEnabled = state.searchToolEnabled,
         isGoogleAuthenticated = state.isGoogleAuthenticated,
@@ -238,10 +236,5 @@ private fun WorkspaceToggle(
 @Composable
 @Preview
 private fun SettingsContentPreview() {
-    val snippets = (0..10).map { index ->
-        "Snippet $index"
-    }
-    SettingsContent(
-        snippets = snippets
-    )
+    SettingsContent()
 }

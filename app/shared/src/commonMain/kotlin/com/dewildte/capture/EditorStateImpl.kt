@@ -10,6 +10,7 @@ import com.dewildte.capture.data.FileNode
 import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.events.*
 import com.dewildte.capture.queries.GetCurrentDateString
+import com.dewildte.capture.utils.SnippetParser
 import com.dewildte.capture.utils.tellErrorLog
 
 @Stable
@@ -78,7 +79,7 @@ class EditorStateImpl(
 
             is SnippetsFileSelected -> {
                 snippetsFile = message.textFile
-                val newSnippets = message.textFile.contents.split("\n\n\n")
+                val newSnippets = SnippetParser.parse(message.textFile)
                 snippets.clear()
                 snippets.addAll(newSnippets)
                 snippetSelectorIsEmpty = false
@@ -86,7 +87,7 @@ class EditorStateImpl(
 
             is SnippetsFileLoaded -> {
                 snippetsFile = message.file
-                val newSnippets = message.file.contents.split("\n\n\n")
+                val newSnippets = SnippetParser.parse(message.file)
                 snippets.clear()
                 snippets.addAll(newSnippets)
                 snippetSelectorIsEmpty = false
@@ -199,7 +200,7 @@ class EditorStateImpl(
             }
 
             is NewFileClicked -> {
-                textFile = TextFile()
+                // Handled in AppContextImpl
             }
 
             is SelectFileClicked -> {

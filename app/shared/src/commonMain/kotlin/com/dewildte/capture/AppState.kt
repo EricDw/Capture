@@ -42,7 +42,6 @@ interface EditorState : AppState {
 }
 
 interface SettingsState : AppState {
-    val snippets: List<String>
     val mcpServers: List<String>
     val searchToolEnabled: Boolean
     val isGoogleAuthenticated: Boolean

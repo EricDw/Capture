@@ -9,7 +9,7 @@ To ensure high-quality, architecturally consistent contributions, you must use t
 | Document | When to Read | Key Information |
 | :--- | :--- | :--- |
 | **[STYLE.md](../STYLE.md)** | Naming new entities, adding UI text, or refactoring existing code. | Nomenclature rules (e.g., "File" vs "Note") and general coding conventions. |
-| **[ARCITECTURE.md](../ARCITECTURE.md)** | Modifying `State` implementations, the `Actor` model, or `AppContext`. | Implementation of Hierarchical State Trees and message passing. |
+| **[ARCHITECTURE.md](../ARCHITECTURE.md)** | Modifying `State` implementations, the `Actor` model, or `AppContext`. | Implementation of Hierarchical State Trees and message passing. |
 | **[VISION.md](../VISION.md)** | Large architectural changes or determining feature priority. | The "Why" behind the project and high-level product goals. |
 | **[ORGANIZATION.md](../ORGANIZATION.md)** | Creating new files, packages, modules, or sub-projects. | The "Where" - defines the project structure and file locations. |
 | **[DESIGN.md](../DESIGN.md)** | Creating or updating UI components and layouts. | M3 Expressive design rules and component preferences. |

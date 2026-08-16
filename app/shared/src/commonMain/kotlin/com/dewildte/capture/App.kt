@@ -361,10 +361,7 @@ class AppSettingsContextPreviewParameterProvider : PreviewParameterProvider<AppC
   val settingsContext =
       AppContextImpl(
           showLoading = false,
-          state =
-              SettingsStateImpl(
-                  snippets = SampleSnippets.basic10,
-              ),
+          state = SettingsStateImpl(),
       )
 
   override val values: Sequence<AppContext>

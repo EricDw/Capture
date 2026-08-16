@@ -1,22 +1,17 @@
 package com.dewildte.capture
 
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.mutableStateListOf
 import com.dewildte.capture.commands.*
 import com.dewildte.capture.data.LogData
 import com.dewildte.capture.data.LogLevel
-import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.events.*
 
 @Stable
-class SettingsStateImpl(
-    snippets: List<String> = emptyList()
-) : SettingsState {
+class SettingsStateImpl : SettingsState {
 
     private var context: MutableAppContext? = null
     private var previousState: AppState? = null
 
-    override var snippets: List<String> = mutableStateListOf(*snippets.toTypedArray())
     override val mcpServers: List<String> get() = context?.mcpServers ?: emptyList()
     override val searchToolEnabled: Boolean get() = context?.searchToolEnabled ?: true
     override val isGoogleAuthenticated: Boolean get() = context?.isGoogleAuthenticated ?: false
@@ -40,14 +35,7 @@ class SettingsStateImpl(
             is Start -> {
                 context?.let { ctx ->
                     ctx.state = this
-
-                    ctx.tell(LoadSnippetsFile)
                 }
-            }
-
-            is SnippetsFileLoaded -> {
-                // TODO: Parse the Snippets out of the file.
-                parseSnippets(message.file)
             }
 
             is BackClicked -> {
@@ -137,11 +125,6 @@ class SettingsStateImpl(
                 // Handled in AppContextImpl
             }
         }
-    }
-
-    private fun parseSnippets(file: TextFile) {
-        // TODO: Extract Snippets
-        // TODO: Set the snippets data
     }
 
     companion object {
