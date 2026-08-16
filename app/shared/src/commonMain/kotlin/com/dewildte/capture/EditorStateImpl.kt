@@ -6,15 +6,16 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dewildte.capture.commands.*
+import com.dewildte.capture.data.FileNode
 import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.events.*
-import com.dewildte.capture.navigation.AppRoute
 import com.dewildte.capture.queries.GetCurrentDateString
 import com.dewildte.capture.utils.tellErrorLog
 
 @Stable
 class EditorStateImpl(
     textFile: TextFile = TextFile(),
+    isNewFile: Boolean = false,
     searchMode: Boolean = false,
     searchTerm: String = "",
     moreMenuExpanded: Boolean = false,
@@ -27,6 +28,13 @@ class EditorStateImpl(
     private var previousState: AppState? = null
 
     override var textFile: TextFile by mutableStateOf(textFile)
+    override var isNewFile: Boolean by mutableStateOf(isNewFile)
+    private var initialTitle: String = textFile.name
+    private var diskName: String = textFile.name
+    
+    override val title: String get() = textFile.name
+    override val contents: String get() = textFile.contents
+
     override var searchMode: Boolean by mutableStateOf(searchMode)
     override var searchTerm: String by mutableStateOf(searchTerm)
     override var moreMenuExpanded: Boolean by mutableStateOf(moreMenuExpanded)
@@ -49,13 +57,12 @@ class EditorStateImpl(
 
             is Start -> {
                 context.apply {
-                    backNavigationEnabled = false
                     state = this@EditorStateImpl
                     showLoading = false
                 }
 
                 if (snippetsFile == null)
-                    context.controller.tell(LoadSnippetsFile)
+                    context.tell(LoadSnippetsFile)
             }
 
             is EditorContentEvent -> {
@@ -64,6 +71,9 @@ class EditorStateImpl(
 
             is FileSelected -> {
                 textFile = message.textFile
+                initialTitle = message.textFile.name
+                diskName = message.textFile.name
+                isNewFile = false
             }
 
             is SnippetsFileSelected -> {
@@ -86,8 +96,12 @@ class EditorStateImpl(
                 handleNavigationEvent(message)
             }
 
+            is BackClicked, is SystemBackButtonClicked -> {
+                handleBackNavigation()
+            }
+
             is FailedToUpdateFileContent -> {
-                context.controller.tellErrorLog(
+                context.tellErrorLog(
                     tag = TAG,
                     message = message.toString(),
                     error = message.cause,
@@ -95,7 +109,7 @@ class EditorStateImpl(
             }
 
             is FailedToLoadSelectedFile -> {
-                context.controller.tellErrorLog(
+                context.tellErrorLog(
                     tag = TAG,
                     message = message.toString(),
                     error = message.cause,
@@ -112,20 +126,53 @@ class EditorStateImpl(
         }
     }
 
+    private fun handleBackNavigation() {
+        if (contents.isBlank() && diskName == initialTitle && diskName.startsWith("Note_")) {
+            // Auto-delete empty new note with default title
+            context.tell(DeleteNodeRequested(FileNode.File(diskName, textFile.path)))
+        } else {
+            // Save latest content
+            context.tell(UpdateSelectedFileContent(contents))
+            
+            // Handle rename if title changed and not yet renamed
+            val finalTitle = validateAndNormalizeTitle(title)
+            
+            if (diskName != finalTitle && finalTitle.isNotBlank()) {
+                val currentNode = FileNode.File(diskName, textFile.path)
+                context.tell(RenameNodeRequested(currentNode, finalTitle))
+            }
+        }
+    }
+
+    private fun validateAndNormalizeTitle(input: String): String {
+        val trimmed = input.trim()
+        if (trimmed.isBlank()) return diskName
+
+        val commonExtensions = listOf(".txt", ".md", ".csv", ".json", ".log", ".litertlm")
+        val hasKnownExtension = commonExtensions.any { trimmed.endsWith(it, ignoreCase = true) }
+        
+        // Also check for any 2-4 char extension if not in the common list
+        val hasAnyExtension = hasKnownExtension || (trimmed.contains(".") && trimmed.substringAfterLast(".").length in 2..4)
+
+        return if (hasAnyExtension) trimmed else "$trimmed.txt"
+    }
+
     private fun handleNavigationEvent(event: NavigationEvent) {
         when (event) {
             is AiTabClicked -> {
-                if (!context.navBackStack.contains(AppRoute.AiAssistant)) {
-                    context.navBackStack.add(AppRoute.AiAssistant)
-                }
+                context.tell(ToggleAiAssistant)
             }
 
             is MenuTabClicked -> {
-                context.controller.tell(SelectTextFile)
+                context.tell(SelectTextFile)
             }
 
             is EditorTabClicked -> {
                 // Already here
+            }
+
+            else -> {
+                // Handled in AppContextImpl
             }
         }
     }
@@ -144,25 +191,25 @@ class EditorStateImpl(
             is InsertSnippetClicked -> {
                 moreMenuExpanded = false
                 snippetSelectorExpanded = true
-                context.controller.tell(LoadSnippetsFile)
+                context.tell(LoadSnippetsFile)
             }
 
             is MoreMenuDismissRequested -> {
                 moreMenuExpanded = false
             }
 
-            is NewNoteClicked -> {
+            is NewFileClicked -> {
                 textFile = TextFile()
             }
 
             is SelectFileClicked -> {
                 moreMenuExpanded = false
-                context.controller.tell(SelectTextFile)
+                context.tell(SelectTextFile)
             }
 
             is SelectSnippetsFileClicked -> {
                 moreMenuExpanded = false
-                context.controller.tell(SelectSnippetsFile())
+                context.tell(SelectSnippetsFile())
             }
 
             is SettingsClicked -> {
@@ -174,11 +221,34 @@ class EditorStateImpl(
                 searchTerm = event.newSearchTerm
             }
 
+            is TitleChanged -> {
+                if (textFile.name != event.newTitle && event.newTitle.isNotBlank()) {
+                    textFile = textFile.copy(name = event.newTitle)
+                }
+            }
+
+            is RenameFileRequested -> {
+                val newTitle = validateAndNormalizeTitle(event.newTitle)
+
+                if (diskName != newTitle && newTitle.isNotBlank()) {
+                    val currentNode = FileNode.File(diskName, textFile.path)
+                    val finalTitle = newTitle
+                    context.tell(RenameNodeRequested(currentNode, finalTitle) { newUri ->
+                        diskName = finalTitle
+                        textFile = textFile.copy(name = finalTitle, path = newUri)
+                    })
+                }
+            }
+
             is FileTextChanged -> {
-                val (newText) = event
-                if (textFile.contents != newText) {
-                    context.controller.tell(UpdateSelectedFileContent(newText))
-                    textFile = textFile.copy(contents = newText)
+                if (textFile.contents != event.newText) {
+                    textFile = textFile.copy(contents = event.newText)
+                }
+            }
+
+            is SaveFileRequested -> {
+                if (textFile.contents == event.contents) {
+                    context.tell(UpdateSelectedFileContent(event.contents))
                 }
             }
 
@@ -189,9 +259,9 @@ class EditorStateImpl(
             is SnippetClicked -> {
                 // TODO: Replace $DATE$ with date
                 val (snippet) = event
-                context.controller.tell(
+                context.tell(
                     GetCurrentDateString { dateString ->
-                        snippetToInsert = snippet.replace($$"$DATE$", dateString)
+                        snippetToInsert = snippet.replace("\$DATE$", dateString)
                         snippetSelectorExpanded = false
                     }
                 )
@@ -200,6 +270,10 @@ class EditorStateImpl(
 
             is SnippetInserted -> {
                 snippetToInsert = null
+            }
+
+            is SetIsNewFile -> {
+                isNewFile = event.isNew
             }
         }
     }

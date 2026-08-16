@@ -2,9 +2,14 @@ package com.dewildte.capture
 
 import com.dewildte.capture.data.FileNode
 import com.dewildte.capture.events.AiToolCallPermissionRequest
-import com.dewildte.capture.navigation.AppRoute
 import com.dewildte.capture.utils.Actor
 
+/**
+ * The read-only view of the application context, intended for use in the UI layer.
+ *
+ * Casting from [AppContext] to [MutableAppContext] in the UI is strictly prohibited to
+ * maintain clear separation between state consumption and state modification.
+ */
 interface AppContext : Actor {
     val showLoading: Boolean
     val backNavigationEnabled: Boolean
@@ -14,6 +19,8 @@ interface AppContext : Actor {
 
     val editorState: EditorState?
     val aiState: AiState?
+    val fileListState: FileListState?
+    val settingsState: SettingsState?
 
     val isAiModelLoading: Boolean
     val isAiModelReady: Boolean
@@ -46,25 +53,30 @@ interface AppContext : Actor {
     val isWorkspaceLoading: Boolean
     val isDrawerOpen: Boolean
     val expandedFolders: Map<String, Boolean>
-    val navBackStack: List<AppRoute>
-
-    val controller: Actor
+    val isAiAssistantVisible: Boolean
 
     override fun tell(message: Any) {
         /* no-op */
     }
 }
 
+/**
+ * The mutable view of the application context, intended for use within state implementations.
+ */
 interface MutableAppContext: AppContext {
     override var showLoading: Boolean
     override var backNavigationEnabled: Boolean
     override var error: Throwable?
     override var state: AppState
-    override var controller: Actor
+    /**
+     * The history of application states. Popping from this list navigates back.
+     */
     override val stateStack: MutableList<AppState>
 
     override var editorState: EditorState?
     override var aiState: AiState?
+    override var fileListState: FileListState?
+    override var settingsState: SettingsState?
 
     override var isAiModelLoading: Boolean
     override var isAiModelReady: Boolean
@@ -97,5 +109,5 @@ interface MutableAppContext: AppContext {
     override var isWorkspaceLoading: Boolean
     override var isDrawerOpen: Boolean
     override val expandedFolders: MutableMap<String, Boolean>
-    override val navBackStack: MutableList<AppRoute>
+    override var isAiAssistantVisible: Boolean
 }

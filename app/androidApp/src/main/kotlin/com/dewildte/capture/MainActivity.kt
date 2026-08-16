@@ -33,6 +33,7 @@ import com.dewildte.capture.events.*
 import com.dewildte.capture.mcp.AndroidMcpManager
 import com.dewildte.capture.mcp.McpManager
 import com.dewildte.capture.queries.GetCurrentDateString
+import com.dewildte.capture.queries.GetCurrentDateTimeString
 import com.dewildte.capture.settings.AndroidSettingsManager
 import com.dewildte.capture.settings.SettingsManager
 import com.dewildte.capture.storage.AndroidStorageManager
@@ -245,6 +246,12 @@ class MainActivity : ComponentActivity(), Actor {
             }
 
             is GetCurrentDateString -> message.onResult(LocalDateTime.now().toLocalDate().toString())
+            
+            is GetCurrentDateTimeString -> {
+                val now = LocalDateTime.now()
+                val timestamp = "${now.toLocalDate()}_${now.hour.toString().padStart(2, '0')}-${now.minute.toString().padStart(2, '0')}-${now.second.toString().padStart(2, '0')}"
+                message.onResult(timestamp)
+            }
 
             is SendAiMessage -> aiManager.sendMessage(
                 message = message.message,
@@ -272,6 +279,7 @@ class MainActivity : ComponentActivity(), Actor {
                     val newFileUri = storageManager.createFile(parentUri, message.name)
                     if (newFileUri != null) {
                         appContext.tell(WorkspaceFileOperationSuccess)
+                        message.onSuccess(newFileUri)
                     }
                 }
             }
@@ -290,6 +298,7 @@ class MainActivity : ComponentActivity(), Actor {
                 val newUri = storageManager.renameNode(message.node.path, message.newName)
                 if (newUri != null) {
                     appContext.tell(WorkspaceFileOperationSuccess)
+                    message.onSuccess(newUri)
                 }
             }
 
@@ -392,15 +401,15 @@ class MainActivity : ComponentActivity(), Actor {
 
     private fun loadSelectedFile(uri: Uri) {
         storageManager.readTextFile(uri.toString())?.let { contents ->
-            val path = uri.lastPathSegment?.replace("primary:", "") ?: ""
-            appContext.state.tell(FileSelected(TextFile(path, contents)))
+            val name = uri.lastPathSegment?.replace("primary:", "") ?: ""
+            appContext.state.tell(FileSelected(TextFile(uri.toString(), name, contents)))
         } ?: appContext.tell(FailedToLoadSelectedFile())
     }
 
     private fun loadSelectedSnippetsFile(uri: Uri) {
         storageManager.readTextFile(uri.toString())?.let { contents ->
-            val path = uri.lastPathSegment?.replace("primary:", "") ?: ""
-            appContext.state.tell(SnippetsFileSelected(TextFile(path, contents)))
+            val name = uri.lastPathSegment?.replace("primary:", "") ?: ""
+            appContext.state.tell(SnippetsFileSelected(TextFile(uri.toString(), name, contents)))
         } ?: appContext.tell(FailedToLoadSelectedSnippetsFile())
     }
 
@@ -523,7 +532,7 @@ You have access to several toolsets. Use them strategically to fulfill user requ
 - `writeToCurrentFile`: Use this to update or rewrite the active file. Always use this when the user asks you to "save", "write", or "fix" the current note.
 
 ## 2. Search Tools
-- `searchNotes`: Use this to find information across ALL the user's saved text files. If a user asks a question and you don't see the answer in the current editor, search their notes first.
+- `searchFiles`: Use this to find information across ALL the user's saved text files. If a user asks a question and you don't see the answer in the current editor, search their files first.
 
 ## 3. System Tools
 - `getCurrentDateTime`: Use this to get the exact current date and time. This is critical for resolving relative dates like "today", "yesterday", or "next week" in searches and calendar events.

@@ -11,7 +11,6 @@ import com.dewildte.capture.data.Message
 import com.dewildte.capture.data.MessageRole
 import com.dewildte.capture.data.ModelInfo
 import com.dewildte.capture.events.*
-import com.dewildte.capture.navigation.AppRoute
 import com.dewildte.capture.utils.tellDebugLog
 import com.dewildte.capture.utils.tellInfoLog
 import kotlin.time.Clock
@@ -55,12 +54,11 @@ class AiStateImpl(
 
             is Start -> {
                 context?.let { ctx ->
-                    ctx.controller.tellInfoLog(TAG, "Starting AiState")
-                    ctx.backNavigationEnabled = false
+                    ctx.tellInfoLog(TAG, "Starting AiState")
                     ctx.state = this@AiStateImpl
                     ctx.showLoading = false
-                    ctx.controller.tell(LoadConversationsFromStorage)
-                    ctx.controller.tell(LoadAvailableModels)
+                    ctx.tell(LoadConversationsFromStorage)
+                    ctx.tell(LoadAvailableModels)
                 }
             }
 
@@ -86,34 +84,37 @@ class AiStateImpl(
         val ctx = context ?: return
         when (event) {
             is ConversationsLoaded -> {
-                ctx.controller.tellDebugLog(TAG, "Loaded ${event.conversations.size} conversations")
+                ctx.tellDebugLog(TAG, "Loaded ${event.conversations.size} conversations")
                 conversations.clear()
                 conversations.addAll(event.conversations)
             }
             is AiStorageFolderSelected -> {
-                ctx.controller.tellInfoLog(TAG, "Storage folder selected: ${event.folderPath}")
+                ctx.tellInfoLog(TAG, "Storage folder selected: ${event.folderPath}")
             }
             is FailedToSelectStorageFolder -> {
-                ctx.controller.tellDebugLog(TAG, "Failed to select storage folder")
+                ctx.tellDebugLog(TAG, "Failed to select storage folder")
             }
         }
     }
 
     private fun handleNavigationEvent(event: NavigationEvent) {
         val ctx = context ?: return
-        ctx.controller.tellDebugLog(TAG, "Navigation event: $event")
+        ctx.tellDebugLog(TAG, "Navigation event: $event")
         when (event) {
             is EditorTabClicked -> {
-                ctx.navBackStack.clear()
-                ctx.navBackStack.add(AppRoute.Editor)
+                // Handled in AppContextImpl
             }
 
             is MenuTabClicked -> {
-                ctx.controller.tell(SelectTextFile)
+                ctx.tell(SelectTextFile)
             }
 
             is AiTabClicked -> {
                 // Already here
+            }
+
+            else -> {
+                // Handled in AppContextImpl
             }
         }
     }
@@ -138,7 +139,7 @@ class AiStateImpl(
                     
                     // Log for debugging "stuck" responses
                     if (event.content.isNotEmpty()) {
-                        ctx.controller.tellDebugLog(TAG, "Added ${event.content.length} chars to message")
+                        ctx.tellDebugLog(TAG, "Added ${event.content.length} chars to message")
                     }
                     
                     val updatedConversation = conversation.copy(
@@ -152,17 +153,17 @@ class AiStateImpl(
                         conversations[index] = updatedConversation
                     }
                     currentConversation = updatedConversation
-                    ctx.controller.tell(SaveConversationToStorage(updatedConversation))
+                    ctx.tell(SaveConversationToStorage(updatedConversation))
                 }
             }
 
             is AiResponseComplete -> {
-                ctx.controller.tellInfoLog(TAG, "AI response complete")
+                ctx.tellInfoLog(TAG, "AI response complete")
                 isGenerating = false
             }
 
             is AiResponseError -> {
-                ctx.controller.tellDebugLog(TAG, "AI response error: ${event.error.message}")
+                ctx.tellDebugLog(TAG, "AI response error: ${event.error.message}")
                 isGenerating = false
                 inferenceError = event.error.message
                 
@@ -203,10 +204,10 @@ class AiStateImpl(
     @OptIn(ExperimentalUuidApi::class)
     private fun handleAiContentEvent(event: AiContentEvent) {
         val ctx = context ?: return
-        ctx.controller.tellDebugLog(TAG, "AI content event: $event")
+        ctx.tellDebugLog(TAG, "AI content event: $event")
         when (event) {
             is NewConversationClicked -> {
-                ctx.controller.tellInfoLog(TAG, "Creating new conversation")
+                ctx.tellInfoLog(TAG, "Creating new conversation")
                 ctx.tokenUsage = null
                 val now = Clock.System.now().toEpochMilliseconds()
                 val newConversation = Conversation(
@@ -228,12 +229,12 @@ class AiStateImpl(
             }
 
             is DeleteConversationClicked -> {
-                ctx.controller.tellInfoLog(TAG, "Deleting conversation: ${event.conversationId}")
+                ctx.tellInfoLog(TAG, "Deleting conversation: ${event.conversationId}")
                 conversations.removeAll { it.id == event.conversationId }
                 if (currentConversation?.id == event.conversationId) {
                     currentConversation = null
                 }
-                ctx.controller.tell(DeleteConversationFromStorage(event.conversationId))
+                ctx.tell(DeleteConversationFromStorage(event.conversationId))
             }
 
             is MessageInputChanged -> {
@@ -242,7 +243,7 @@ class AiStateImpl(
 
             is SendMessageClicked -> {
                 if (currentMessage.isNotBlank() && currentConversation != null && isModelReady) {
-                    ctx.controller.tellInfoLog(TAG, "Sending message")
+                    ctx.tellInfoLog(TAG, "Sending message")
                     inferenceError = null
                     val now = Clock.System.now().toEpochMilliseconds()
                     val userMessage = Message(
@@ -282,15 +283,15 @@ class AiStateImpl(
                     val messageToSend = currentMessage
                     currentMessage = ""
                     isGenerating = true
-                    ctx.controller.tell(SendAiMessage(messageToSend, updatedConversation))
-                    ctx.controller.tell(SaveConversationToStorage(updatedConversation))
+                    ctx.tell(SendAiMessage(messageToSend, updatedConversation))
+                    ctx.tell(SaveConversationToStorage(updatedConversation))
                 }
             }
 
             is StopGeneratingClicked -> {
-                ctx.controller.tellInfoLog(TAG, "Stopping AI generation")
+                ctx.tellInfoLog(TAG, "Stopping AI generation")
                 isGenerating = false
-                ctx.controller.tell(StopAiGeneration)
+                ctx.tell(StopAiGeneration)
             }
 
             is BackToConversationsClicked -> {
@@ -303,23 +304,23 @@ class AiStateImpl(
             }
 
             is SelectStorageFolderClicked -> {
-                ctx.controller.tell(SelectAiStorageFolder)
+                ctx.tell(SelectAiStorageFolder)
             }
 
             is SelectModelClicked -> {
-                ctx.controller.tell(SelectModelFile)
+                ctx.tell(SelectModelFile)
             }
 
             is SwitchModelClicked -> {
-                ctx.controller.tell(SwitchModel(event.model))
+                ctx.tell(SwitchModel(event.model))
             }
 
             is DeleteModelClicked -> {
-                ctx.controller.tell(DeleteModel(event.model))
+                ctx.tell(DeleteModel(event.model))
             }
 
             is ModelSelected -> {
-                ctx.controller.tellInfoLog(TAG, "Model selected: ${event.name}")
+                ctx.tellInfoLog(TAG, "Model selected: ${event.name}")
                 // Global status will be updated via initialization events
             }
         }

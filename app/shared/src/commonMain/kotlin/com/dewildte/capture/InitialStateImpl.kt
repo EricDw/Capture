@@ -21,7 +21,11 @@ class InitialStateImpl : InitialState {
             is Start -> {
                 context.run {
                     showLoading = true
-                    controller.tell(LoadSelectedFile())
+                    if (workspaceFolderUri != null) {
+                        tell(TransitionToState(fileListState!!))
+                    } else {
+                        tell(LoadSelectedFile())
+                    }
                 }
             }
 

@@ -18,15 +18,14 @@ class EmptyStateImpl : EmptyState {
 
             is Start -> {
                 appContext.apply {
-                    backNavigationEnabled = false
                     showLoading = false
                     state = this@EmptyStateImpl
                 }
             }
 
             is SelectTextFileClicked -> {
-//                appContext.controller.tell(SelectModelFile)
-                appContext.controller.tell(SelectTextFile)
+//                appContext.tell(SelectModelFile)
+                appContext.tell(SelectTextFile)
             }
 
             is FileSelected -> {
@@ -53,7 +52,11 @@ class EmptyStateImpl : EmptyState {
             }
 
             is MenuTabClicked -> {
-                appContext.controller.tell(SelectTextFile)
+                appContext.tell(SelectTextFile)
+            }
+
+            else -> {
+                // Handled in AppContextImpl
             }
         }
     }

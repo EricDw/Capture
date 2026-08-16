@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.dewildte.capture.commands.ClearActivePermissionRequest
 import com.dewildte.capture.commands.Command
 import com.dewildte.capture.commands.LoadFileFromUri
 import com.dewildte.capture.commands.SetContext
@@ -16,8 +17,8 @@ import com.dewildte.capture.commands.TransitionToState
 import com.dewildte.capture.data.FileNode
 import com.dewildte.capture.data.ModelInfo
 import com.dewildte.capture.events.*
-import com.dewildte.capture.navigation.AppRoute
 import com.dewildte.capture.queries.Query
+import com.dewildte.capture.queries.GetCurrentDateTimeString
 import com.dewildte.capture.utils.Actor
 import com.dewildte.capture.utils.tellDebugLog
 
@@ -34,7 +35,7 @@ class AppContextImpl(
     override var error: Throwable? by mutableStateOf(error)
     override var state: AppState by mutableStateOf(state)
     override var stateStack: MutableList<AppState> = mutableStateListOf(state)
-    override var controller: Actor by mutableStateOf(controller)
+    private var controller: Actor = controller
 
     private var _editorState: EditorState? by mutableStateOf(null)
     override var editorState: EditorState?
@@ -62,6 +63,34 @@ class AppContextImpl(
         }
         set(value) {
             _aiState = value
+        }
+
+    private var _fileListState: FileListState? by mutableStateOf(null)
+    override var fileListState: FileListState?
+        get() {
+            val current = _fileListState
+            if (current != null) return current
+            val new = FileListStateImpl()
+            new.tell(SetContext(this))
+            _fileListState = new
+            return new
+        }
+        set(value) {
+            _fileListState = value
+        }
+
+    private var _settingsState: SettingsState? by mutableStateOf(null)
+    override var settingsState: SettingsState?
+        get() {
+            val current = _settingsState
+            if (current != null) return current
+            val new = SettingsStateImpl()
+            new.tell(SetContext(this))
+            _settingsState = new
+            return new
+        }
+        set(value) {
+            _settingsState = value
         }
 
     override var isAiModelLoading: Boolean by mutableStateOf(false)
@@ -95,9 +124,10 @@ class AppContextImpl(
     override var isWorkspaceLoading: Boolean by mutableStateOf(false)
     override var isDrawerOpen: Boolean by mutableStateOf(false)
     override val expandedFolders: MutableMap<String, Boolean> = mutableStateMapOf()
-    override val navBackStack: MutableList<AppRoute> = mutableStateListOf(AppRoute.Editor)
+    override var isAiAssistantVisible: Boolean by mutableStateOf(false)
 
     override fun tell(message: Any) {
+        val currentState = state
         when (message) {
             is Event -> {
                 handleEvent(message)
@@ -108,6 +138,9 @@ class AppContextImpl(
             is Query -> {
                 handleQuery(message)
             }
+        }
+        if (message !is Command && message !is Query) {
+            currentState.tell(message)
         }
     }
 
@@ -150,17 +183,41 @@ class AppContextImpl(
             is WorkspaceEvent -> {
                 handleWorkspaceEvent(event)
             }
-            is SystemBackButtonClicked -> {
-                if (navBackStack.size > 1) {
-                    navBackStack.removeAt(navBackStack.size - 1)
-                    syncStateToBackStack()
-                }
+            is SetDrawerOpen -> {
+                isDrawerOpen = event.isOpen
+            }
+            is EditorTabClicked -> {
+                stateStack.clear()
+                tell(TransitionToState(fileListState!!))
+            }
+            is NewFileClicked -> {
+                controller.tellDebugLog(TAG, "NewFileClicked event received")
+                handleNewFileClicked()
+            }
+            is GoBack, is SystemBackButtonClicked -> {
+                handleBackNavigation()
+            }
+            is ToggleAiAssistant -> {
+                isAiAssistantVisible = !isAiAssistantVisible
             }
             else -> {
                 controller.tell(event)
             }
         }
-        state.tell(event)
+    }
+
+    private fun handleBackNavigation() {
+        if (stateStack.size > 1) {
+            stateStack.removeAt(stateStack.size - 1)
+            val prevState = stateStack.last()
+            
+            // Re-apply the state
+            this.state = prevState
+            prevState.tell(SetContext(this))
+            prevState.tell(Start)
+            
+            backNavigationEnabled = stateStack.size > 1
+        }
     }
 
     private fun handleCommand(command: Command) {
@@ -174,16 +231,52 @@ class AppContextImpl(
                     tag = TAG,
                     message = "$command"
                 )
-                this.state = command.newState
-                command.newState.tell(SetContext(this))
-                command.newState.tell(Start)
+                if (this.state != command.newState) {
+                    this.state = command.newState
+                    if (stateStack.lastOrNull() != command.newState) {
+                        stateStack.add(command.newState)
+                    }
+                    command.newState.tell(SetContext(this))
+                    command.newState.tell(Start)
+                    
+                    backNavigationEnabled = stateStack.size > 1
+                }
             }
-            else -> state.tell(command)
+            is ClearActivePermissionRequest -> {
+                activePermissionRequest = null
+            }
+            else -> {
+                state.tell(command)
+                controller.tell(command)
+            }
         }
     }
 
     private fun handleQuery(query: Query) {
         state.tell(query)
+        controller.tell(query)
+    }
+
+    private fun handleNewFileClicked() {
+        val rootUri = workspaceFolderUri ?: run {
+            controller.tellDebugLog(TAG, "handleNewFileClicked: No workspace folder selected")
+            return
+        }
+        
+        controller.tellDebugLog(TAG, "handleNewFileClicked: Requesting timestamp")
+        tell(GetCurrentDateTimeString { timestamp ->
+            val filename = "Note_$timestamp.txt"
+            controller.tellDebugLog(TAG, "handleNewFileClicked: Creating file $filename")
+            controller.tell(CreateFileRequested(rootUri, filename) { newUri ->
+                controller.tellDebugLog(TAG, "handleNewFileClicked: File created at $newUri")
+                controller.tell(LoadFileFromUri(newUri))
+                
+                val editor = editorState!!
+                editor.tell(SetIsNewFile(true))
+                
+                tell(TransitionToState(editor))
+            })
+        })
     }
 
     private fun handleWorkspaceEvent(event: WorkspaceEvent) {
@@ -196,6 +289,10 @@ class AppContextImpl(
                 isWorkspaceLoading = true
                 expandedFolders.clear()
                 controller.tell(event)
+                // If we are in Initial or Empty state, transition to File List
+                if (state is InitialState || state is EmptyState) {
+                    tell(TransitionToState(fileListState!!))
+                }
             }
             is WorkspaceNodesLoaded -> {
                 workspaceNodes.clear()
@@ -223,22 +320,9 @@ class AppContextImpl(
             is WorkspaceFileOperationSuccess -> {
                 tell(RefreshWorkspaceRequested)
             }
-        }
-    }
-
-    private fun syncStateToBackStack() {
-        val lastRoute = navBackStack.lastOrNull() ?: AppRoute.Editor
-        when (lastRoute) {
-            AppRoute.Editor -> tell(TransitionToState(editorState!!))
-            AppRoute.Settings -> {
-                // If it's not already settings, transition to it.
-                // Note: SettingsStateImpl doesn't have a singleton in AppContext yet.
-                // Maybe we should just use the current state if it's already SettingsState?
-                if (state !is SettingsState) {
-                    tell(TransitionToState(SettingsStateImpl()))
-                }
+            is SetDrawerOpen -> {
+                isDrawerOpen = event.isOpen
             }
-            AppRoute.AiAssistant -> tell(TransitionToState(aiState!!))
         }
     }
 

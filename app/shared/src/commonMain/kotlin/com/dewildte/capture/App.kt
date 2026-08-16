@@ -1,39 +1,85 @@
 package com.dewildte.capture
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeFloatingActionButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.runtime.*
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
-import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
-import com.dewildte.capture.components.*
+import com.dewildte.capture.commands.ClearActivePermissionRequest
+import com.dewildte.capture.commands.TransitionToState
+import com.dewildte.capture.components.EditorBottomSheet
+import com.dewildte.capture.components.McpToolPermissionDialog
+import com.dewildte.capture.components.SearchTopAppBar
 import com.dewildte.capture.content.ai.AiContent
 import com.dewildte.capture.content.drawer.FileDrawerContent
 import com.dewildte.capture.content.editor.EditorContent
+import com.dewildte.capture.content.empty.EmptyContent
+import com.dewildte.capture.content.files.FileListContent
 import com.dewildte.capture.content.loading.LoadingContent
 import com.dewildte.capture.content.settings.SettingsContent
 import com.dewildte.capture.data.TextFile
-import com.dewildte.capture.events.*
-import com.dewildte.capture.navigation.AppRoute
+import com.dewildte.capture.events.AiTabClicked
+import com.dewildte.capture.events.CreateFileRequested
+import com.dewildte.capture.events.CreateFolderRequested
+import com.dewildte.capture.events.DeleteNodeRequested
+import com.dewildte.capture.events.EditorTabClicked
+import com.dewildte.capture.events.FileInDrawerClicked
+import com.dewildte.capture.events.NewFileClicked
+import com.dewildte.capture.events.RefreshWorkspaceRequested
+import com.dewildte.capture.events.RenameNodeRequested
+import com.dewildte.capture.events.SelectWorkspaceFolderRequested
+import com.dewildte.capture.events.SetDrawerOpen
+import com.dewildte.capture.events.SettingsClicked
+import com.dewildte.capture.events.SystemBackButtonClicked
+import com.dewildte.capture.events.ToggleAiAssistant
+import com.dewildte.capture.events.ToggleDrawerClicked
 import com.dewildte.capture.utils.MapParameterProvider
 import com.dewildte.capture.utils.samples.SampleSnippets
 import com.dewildte.capture.utils.samples.SampleText
+import com.dewildte.capture.utils.tellDebugLog
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun App(
     appContext: AppContext = rememberAppContext(),
@@ -43,7 +89,6 @@ fun App(
   val isExpanded = windowAdaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
 
   val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-
 
   LaunchedEffect(appContext.isDrawerOpen) {
     if (appContext.isDrawerOpen && drawerState.isClosed) {
@@ -55,15 +100,8 @@ fun App(
 
   LaunchedEffect(drawerState.currentValue) {
     if (drawerState.isClosed && appContext.isDrawerOpen) {
-      (appContext as? MutableAppContext)?.isDrawerOpen = false
+      appContext.tell(SetDrawerOpen(false))
     }
-  }
-
-  // Cast for mutation
-  val mutableBackStack = appContext.navBackStack as MutableList<AppRoute>
-
-  LaunchedEffect(appContext.navBackStack.size) {
-    (appContext as? MutableAppContext)?.backNavigationEnabled = appContext.navBackStack.size > 1
   }
 
   ModalNavigationDrawer(
@@ -79,7 +117,7 @@ fun App(
                 selectedFilePath = (state as? EditorState)?.textFile?.path,
                 onFileSelected = { file ->
                   appContext.tell(FileInDrawerClicked(file))
-                  (appContext as? MutableAppContext)?.isDrawerOpen = false
+                  appContext.tell(SetDrawerOpen(false))
                 },
                 expandedFolders = appContext.expandedFolders as MutableMap<String, Boolean>,
                 onCreateFileRequested = { parent, name ->
@@ -96,7 +134,7 @@ fun App(
                 isInitializing = appContext.isWorkspaceLoading,
                 isFolderSelected = appContext.workspaceFolderUri != null,
                 onSelectFolderClicked = { appContext.tell(SelectWorkspaceFolderRequested) },
-                onCollapseClicked = { (appContext as? MutableAppContext)?.isDrawerOpen = false },
+                onCollapseClicked = { appContext.tell(SetDrawerOpen(false)) },
                 modifier = Modifier.fillMaxHeight(),
             )
           }
@@ -108,19 +146,13 @@ fun App(
           SearchTopAppBar(
               onMenuClick = { appContext.tell(ToggleDrawerClicked) },
               onAiClick = {
-                if (mutableBackStack.contains(AppRoute.AiAssistant)) {
-                  mutableBackStack.remove(AppRoute.AiAssistant)
-                } else {
-                  mutableBackStack.add(AppRoute.AiAssistant)
-                }
+                appContext.tell(ToggleAiAssistant)
               },
               onSettingsClick = {
-                if (!appContext.navBackStack.contains(AppRoute.Settings)) {
-                  mutableBackStack.add(AppRoute.Settings)
-                }
+                appContext.tell(TransitionToState(appContext.settingsState!!))
                 appContext.tell(SettingsClicked)
               },
-              showBackButton = appContext.navBackStack.size > 1,
+              showBackButton = appContext.backNavigationEnabled,
               showNavActions = !isExpanded,
               showMenuIcon = !isExpanded,
               onBackClick = {
@@ -129,15 +161,24 @@ fun App(
           )
         },
         floatingActionButton = {
-          if (state is EditorState) {
+          if (state is FileListState) {
             var showFabMenu by remember { mutableStateOf(false) }
             Box {
               LargeFloatingActionButton(
-                  onClick = { state.tell(NewNoteClicked) },
+                  onClick = { 
+                      appContext.tellDebugLog("App", "FAB Primary Action Triggered")
+                      appContext.tell(NewFileClicked) 
+                  },
                   modifier =
                       Modifier.combinedClickable(
-                          onClick = { state.tell(NewNoteClicked) },
-                          onLongClick = { showFabMenu = true },
+                          onClick = { 
+                              appContext.tellDebugLog("App", "FAB Clicked (Modifier)")
+                              appContext.tell(NewFileClicked) 
+                          },
+                          onLongClick = { 
+                              appContext.tellDebugLog("App", "FAB Long Clicked")
+                              showFabMenu = true 
+                          },
                       ),
               ) {
                 Icon(Icons.Default.Add, contentDescription = "Actions")
@@ -149,14 +190,7 @@ fun App(
                 DropdownMenuItem(
                     text = { Text("New Note") },
                     onClick = {
-                      state.tell(NewNoteClicked)
-                      showFabMenu = false
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Insert Snippet") },
-                    onClick = {
-                      state.tell(InsertSnippetClicked)
+                      appContext.tell(NewFileClicked)
                       showFabMenu = false
                     },
                 )
@@ -183,27 +217,19 @@ fun App(
               },
               modifier = Modifier.fillMaxHeight(),
           ) {
-            val currentRoute = appContext.navBackStack.lastOrNull() ?: AppRoute.Editor
-
             NavigationRailItem(
-                selected = currentRoute == AppRoute.Editor,
+                selected = state is EditorState || state is FileListState,
                 onClick = {
-                  mutableBackStack.clear()
-                  mutableBackStack.add(AppRoute.Editor)
                   appContext.tell(EditorTabClicked)
                 },
-                icon = { Icon(Icons.Default.Edit, contentDescription = "Editor") },
-                label = { Text("Editor") },
+                icon = { Icon(Icons.Default.Edit, contentDescription = "Notes") },
+                label = { Text("Notes") },
             )
 
             NavigationRailItem(
-                selected = currentRoute == AppRoute.AiAssistant,
+                selected = state is AiState,
                 onClick = {
-                  if (mutableBackStack.contains(AppRoute.AiAssistant)) {
-                    mutableBackStack.remove(AppRoute.AiAssistant)
-                  } else {
-                    mutableBackStack.add(AppRoute.AiAssistant)
-                  }
+                  appContext.tell(ToggleAiAssistant)
                   appContext.tell(AiTabClicked)
                 },
                 icon = { Icon(Icons.Default.Bolt, contentDescription = "AI Assistant") },
@@ -211,11 +237,9 @@ fun App(
             )
 
             NavigationRailItem(
-                selected = currentRoute == AppRoute.Settings,
+                selected = state is SettingsState,
                 onClick = {
-                  if (!appContext.navBackStack.contains(AppRoute.Settings)) {
-                    mutableBackStack.add(AppRoute.Settings)
-                  }
+                  appContext.tell(TransitionToState(appContext.settingsState!!))
                   appContext.tell(SettingsClicked)
                 },
                 icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
@@ -256,18 +280,35 @@ fun App(
 
         // Main Content
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-          val currentRoute = appContext.navBackStack.lastOrNull() ?: AppRoute.Editor
           when {
-            state is SettingsState || currentRoute == AppRoute.Settings -> {
+            state is SettingsState -> {
               SettingsContent(
-                  state = (appContext.state as? SettingsState) ?: SettingsStateImpl(),
+                  state = state,
                   modifier = Modifier.fillMaxSize().imePadding(),
               )
             }
-            currentRoute == AppRoute.AiAssistant && !isExpanded -> {
+            state is AiState && !isExpanded -> {
               AiContent(
-                  state = appContext.aiState ?: AiStateImpl(),
+                  state = state,
                   modifier = Modifier.fillMaxSize().imePadding(),
+              )
+            }
+            state is FileListState -> {
+              FileListContent(
+                  state = state,
+                  modifier = Modifier.fillMaxSize()
+              )
+            }
+            state is EditorState -> {
+              EditorContent(
+                  state = state,
+                  modifier = Modifier.fillMaxSize().imePadding(),
+              )
+            }
+            state is EmptyState -> {
+              EmptyContent(
+                  modifier = Modifier.fillMaxSize(),
+                  onEvent = state::tell
               )
             }
             else -> {
@@ -280,7 +321,7 @@ fun App(
         }
 
         // Supporting Pane (AI)
-        if (isExpanded && appContext.navBackStack.contains(AppRoute.AiAssistant)) {
+        if (isExpanded && appContext.isAiAssistantVisible) {
           VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
           Box(modifier = Modifier.width(350.dp).fillMaxHeight()) {
             AiContent(
@@ -303,7 +344,7 @@ fun App(
         arguments = request.arguments,
         onResult = { result ->
           request.result.complete(result)
-          (appContext as? MutableAppContext)?.activePermissionRequest = null
+          appContext.tell(ClearActivePermissionRequest)
         },
     )
   }

@@ -1,6 +1,7 @@
 package com.dewildte.capture
 
 import androidx.compose.runtime.Stable
+import com.dewildte.capture.data.FileNode
 import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.utils.Actor
 
@@ -15,9 +16,18 @@ interface InitialState : AppState
 
 interface EmptyState : AppState
 
+interface FileListState : AppState {
+    val files: List<FileNode.File>
+    val isRefreshing: Boolean
+}
+
 interface EditorState : AppState {
 
     val textFile: TextFile
+    val title: String
+    val contents: String
+    val isNewFile: Boolean
+
     val searchMode: Boolean
 
     val searchTerm: String

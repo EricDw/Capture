@@ -7,7 +7,6 @@ import com.dewildte.capture.data.LogData
 import com.dewildte.capture.data.LogLevel
 import com.dewildte.capture.data.TextFile
 import com.dewildte.capture.events.*
-import com.dewildte.capture.navigation.AppRoute
 
 @Stable
 class SettingsStateImpl(
@@ -40,10 +39,9 @@ class SettingsStateImpl(
 
             is Start -> {
                 context?.let { ctx ->
-                    ctx.backNavigationEnabled = previousState != this
                     ctx.state = this
 
-                    ctx.controller.tell(LoadSnippetsFile)
+                    ctx.tell(LoadSnippetsFile)
                 }
             }
 
@@ -53,19 +51,7 @@ class SettingsStateImpl(
             }
 
             is BackClicked -> {
-                context?.let { ctx ->
-                    if (ctx.navBackStack.size > 1) {
-                        ctx.navBackStack.removeAt(ctx.navBackStack.size - 1)
-                        // Transition to the new top of stack is handled by syncStateToBackStack in AppContextImpl
-                        // if we triggered this via SystemBackButtonClicked, but for BackClicked we need to call it or handle it.
-                        // Actually, let's just make AppContextImpl handle BackClicked too or use a common event.
-                        ctx.tell(SystemBackButtonClicked) 
-                    } else {
-                        ctx.navBackStack.clear()
-                        ctx.navBackStack.add(AppRoute.Editor)
-                        ctx.tell(TransitionToState(ctx.editorState!!))
-                    }
-                }
+                context?.tell(GoBack)
             }
 
             is SystemBackButtonClicked -> {
@@ -89,7 +75,7 @@ class SettingsStateImpl(
             is AddMcpServerClicked -> {
                 if (!ctx.mcpServers.contains(event.url)) {
                     ctx.mcpServers.add(event.url)
-                    ctx.controller.tell(LogMessage(LogData(LogLevel.INFO, TAG, "Added MCP Server: ${event.url}")))
+                    ctx.tell(LogMessage(LogData(LogLevel.INFO, TAG, "Added MCP Server: ${event.url}")))
                 }
             }
             is RemoveMcpServerClicked -> {
@@ -99,10 +85,10 @@ class SettingsStateImpl(
                 ctx.searchToolEnabled = event.enabled
             }
             is SignInWithGoogleClicked -> {
-                ctx.controller.tell(SignInWithGoogle)
+                ctx.tell(SignInWithGoogle)
             }
             is SignOutWithGoogleClicked -> {
-                ctx.controller.tell(SignOutWithGoogle)
+                ctx.tell(SignOutWithGoogle)
             }
             is GoogleAuthenticated -> {
                 ctx.isGoogleAuthenticated = true
@@ -125,10 +111,10 @@ class SettingsStateImpl(
             }
             is UpdateGoogleClientIdClicked -> {
                 ctx.googleClientId = event.clientId
-                ctx.controller.tell(UpdateGoogleClientId(event.clientId))
+                ctx.tell(UpdateGoogleClientId(event.clientId))
             }
         }
-        ctx.controller.tell(SaveSettings)
+        ctx.tell(SaveSettings)
     }
 
     private fun handleNavigationEvent(event: NavigationEvent) {
@@ -136,18 +122,19 @@ class SettingsStateImpl(
 
         when (event) {
             is EditorTabClicked -> {
-                ctx.navBackStack.clear()
-                ctx.navBackStack.add(AppRoute.Editor)
+                // Handled in AppContextImpl
             }
 
             is AiTabClicked -> {
-                if (!ctx.navBackStack.contains(AppRoute.AiAssistant)) {
-                    ctx.navBackStack.add(AppRoute.AiAssistant)
-                }
+                ctx.tell(ToggleAiAssistant)
             }
 
             is MenuTabClicked -> {
-                ctx.controller.tell(SelectTextFile)
+                ctx.tell(SelectTextFile)
+            }
+
+            else -> {
+                // Handled in AppContextImpl
             }
         }
     }

@@ -16,12 +16,23 @@ data class FileInDrawerClicked(val file: FileNode.File) : WorkspaceEvent
 
 data object RefreshWorkspaceRequested : WorkspaceEvent
 
-data class CreateFileRequested(val parentPath: String?, val name: String) : WorkspaceEvent
+data class CreateFileRequested(
+    val parentPath: String?,
+    val name: String,
+    val onSuccess: (String) -> Unit = {}
+) : WorkspaceEvent
+
 
 data class CreateFolderRequested(val parentPath: String?, val name: String) : WorkspaceEvent
 
-data class RenameNodeRequested(val node: FileNode, val newName: String) : WorkspaceEvent
+data class RenameNodeRequested(
+    val node: FileNode,
+    val newName: String,
+    val onSuccess: (String) -> Unit = {}
+) : WorkspaceEvent
 
 data class DeleteNodeRequested(val node: FileNode) : WorkspaceEvent
 
 data object WorkspaceFileOperationSuccess : WorkspaceEvent
+
+data class SetDrawerOpen(val isOpen: Boolean) : WorkspaceEvent

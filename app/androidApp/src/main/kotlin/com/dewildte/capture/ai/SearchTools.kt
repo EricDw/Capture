@@ -11,8 +11,8 @@ class SearchTools(
     private val settingsManager: SettingsManager
 ) : ToolSet {
 
-    @Tool(description = "Searches for a specific text string across all saved notes in the storage folder.")
-    fun searchNotes(
+    @Tool(description = "Searches for a specific text string across all saved files in the storage folder.")
+    fun searchFiles(
         @ToolParam(description = "The text query to search for.")
         query: String
     ): String {
@@ -21,9 +21,9 @@ class SearchTools(
         val results = storageManager.searchFiles(folderUri, query)
         
         return if (results.isEmpty()) {
-            "No notes found containing '$query'."
+            "No files found containing '$query'."
         } else {
-            "Found '$query' in the following notes: ${results.joinToString(", ")}"
+            "Found '$query' in the following files: ${results.joinToString(", ")}"
         }
     }
 }

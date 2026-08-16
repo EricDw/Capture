@@ -152,6 +152,16 @@ The State Tree is considered to be the owner of the state of the app.
 `State`s are `Actors` and as such they should **_never have public functions beyond the `tell` function_**. 
 Private functions are completely fine.
 
+### AppContext and MutableAppContext
+The application context is split into two interfaces to enforce clear boundaries:
+
+- **AppContext**: A read-only interface intended for the UI layer. It provides access to the current state and common application-level properties.
+- **MutableAppContext**: A mutable interface intended for use within state implementations (e.g., `AppState` subclasses). It allows updating the application state, navigation stack, and other global properties.
+
+**Strict Rules:**
+1. **No Casting in UI**: The UI layer must only interact with `AppContext`. Casting from `AppContext` to `MutableAppContext` in the UI is strictly prohibited.
+2. **Encapsulated Controller**: The application controller is an internal implementation detail of `AppContextImpl`. It is not exposed through either `AppContext` or `MutableAppContext`. All communication with the controller must happen via the `tell(message)` method on the context. Unhandled messages in the context are automatically forwarded to the controller.
+
 Do not put too many properties in a single `State` 5-7 max.
 If you have to expose more than that consider wrapping properties together in a class.
 Properties that change together, live together.
