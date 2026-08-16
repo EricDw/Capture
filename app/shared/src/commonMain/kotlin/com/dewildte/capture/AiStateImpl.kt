@@ -153,13 +153,15 @@ class AiStateImpl(
                         conversations[index] = updatedConversation
                     }
                     currentConversation = updatedConversation
-                    ctx.tell(SaveConversationToStorage(updatedConversation))
                 }
             }
 
             is AiResponseComplete -> {
                 ctx.tellInfoLog(TAG, "AI response complete")
                 isGenerating = false
+                currentConversation?.let {
+                    ctx.tell(SaveConversationToStorage(it))
+                }
             }
 
             is AiResponseError -> {
@@ -169,7 +171,7 @@ class AiStateImpl(
                 
                 // Remove the "ghost" empty AI message if it was just added
                 currentConversation?.let { conversation ->
-                    if (conversation.messages.lastOrNull()?.role == MessageRole.AI && 
+                    val finalConversation = if (conversation.messages.lastOrNull()?.role == MessageRole.AI && 
                         conversation.messages.lastOrNull()?.content?.isEmpty() == true) {
                         val updatedConversation = conversation.copy(
                             messages = conversation.messages.dropLast(1)
@@ -179,7 +181,11 @@ class AiStateImpl(
                             conversations[index] = updatedConversation
                         }
                         currentConversation = updatedConversation
+                        updatedConversation
+                    } else {
+                        conversation
                     }
+                    ctx.tell(SaveConversationToStorage(finalConversation))
                 }
             }
 

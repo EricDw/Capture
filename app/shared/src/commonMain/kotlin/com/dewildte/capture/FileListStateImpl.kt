@@ -9,6 +9,7 @@ import com.dewildte.capture.commands.SetContext
 import com.dewildte.capture.commands.Start
 import com.dewildte.capture.commands.TransitionToState
 import com.dewildte.capture.data.FileNode
+import com.dewildte.capture.data.SupportedFiles
 import com.dewildte.capture.events.FileInDrawerClicked
 import com.dewildte.capture.events.RefreshWorkspaceRequested
 import com.dewildte.capture.events.WorkspaceNodesLoaded
@@ -41,9 +42,9 @@ class FileListStateImpl : FileListState {
 
             is WorkspaceNodesLoaded -> {
                 isRefreshing = false
-                // Filter for .txt files in the root for the list view
+                // Filter for supported text files in the root for the list view
                 files = message.nodes.filterIsInstance<FileNode.File>()
-                    .filter { it.extension == "txt" }
+                    .filter { it.extension in SupportedFiles.extensions }
             }
 
             is FileInDrawerClicked -> {
